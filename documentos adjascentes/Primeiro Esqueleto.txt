@@ -1,0 +1,172 @@
+import os
+import json
+import requests
+from datetime import datetime
+
+class WhatsAppManager:
+    """
+    Classe responsável por gerenciar a comunicação via WhatsApp,
+    armazenamento de mensagens e integração com a IA (Qwen).
+    """
+
+    def __init__(self):
+        """
+        Inicializa a classe com configurações básicas, como tokens,
+        diretórios para salvar mensagens e variáveis de controle.
+        """
+        self.VERIFICATION_TOKEN = "SEU_VERIFICATION_TOKEN"
+        self.WHATSAPP_TOKEN = "SEU_WHATSAPP_TOKEN"
+        self.PHONE_NUMBER_ID = "SEU_PHONE_NUMBER_ID"
+        self.SAVE_FOLDER = "received_messages"
+        self.conversations = {}  # Dicionário para armazenar conversas por número de telefone
+
+        # Cria o diretório para salvar mensagens, se não existir
+        if not os.path.exists(self.SAVE_FOLDER):
+            os.makedirs(self.SAVE_FOLDER)
+
+    def save_received_message(self, data):
+        """
+        Salva a mensagem recebida do WhatsApp em um arquivo JSON.
+        Args:
+            data (dict): Dados da mensagem recebida.
+        """
+        try:
+            # Extrai informações relevantes da mensagem
+            phone_number = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("wa_id", "")
+            message_text = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("messages", [{}])[0].get("text", {}).get("body", "")
+            timestamp = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("messages", [{}])[0].get("timestamp", "")
+
+            # Define o nome do arquivo com base no timestamp
+            filename = os.path.join(self.SAVE_FOLDER, f"message_{phone_number}_{timestamp}.json")
+
+            # Salva os dados no arquivo JSON
+            with open(filename, "w", encoding="utf-8") as file:
+                json.dump(data, file, ensure_ascii=False, indent=4)
+
+            print(f"Mensagem salva em: {filename}")
+        except Exception as e:
+            print(f"Erro ao salvar mensagem: {str(e)}")
+
+    def handle_incoming_message(self, data):
+        """
+        Processa a mensagem recebida do WhatsApp.
+        Extrai informações relevantes (número, nome, texto) e armazena no histórico.
+        Args:
+            data (dict): Dados da mensagem recebida.
+        """
+        try:
+            # Extrai informações da mensagem
+            phone_number = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("wa_id", "")
+            name = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("profile", {}).get("name", "")
+            message_text = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("messages", [{}])[0].get("text", {}).get("body", "")
+            timestamp = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("messages", [{}])[0].get("timestamp", "")
+
+            # Formata o timestamp para um formato legível
+            formatted_timestamp = datetime.fromtimestamp(int(timestamp)).strftime('%Y-%m-%d %H:%M:%S')
+
+            # Armazena a mensagem no histórico
+            if phone_number not in self.conversations:
+                self.conversations[phone_number] = {
+                    "name": name,
+                    "messages": []
+                }
+
+            self.conversations[phone_number]["messages"].append({
+                "timestamp": formatted_timestamp,
+                "text": message_text,
+                "from": "cliente"
+            })
+
+            print(f"Mensagem processada: {message_text} de {name} ({phone_number})")
+        except Exception as e:
+            print(f"Erro ao processar mensagem: {str(e)}")
+
+    def send_message_to_whatsapp(self, to_number, message):
+        """
+        Envia uma mensagem para o cliente via API do WhatsApp.
+        Args:
+            to_number (str): Número de telefone do cliente.
+            message (str): Texto da mensagem a ser enviada.
+        Returns:
+            bool: True se a mensagem foi enviada com sucesso, False caso contrário.
+        """
+        try:
+            url = f"https://graph.facebook.com/v16.0/{self.PHONE_NUMBER_ID}/messages"
+            headers = {
+                "Authorization": f"Bearer {self.WHATSAPP_TOKEN}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": to_number,
+                "type": "text",
+                "text": {
+                    "body": message
+                }
+            }
+
+            response = requests.post(url, json=payload, headers=headers)
+            if response.status_code == 200:
+                print(f"Mensagem enviada com sucesso para {to_number}: {message}")
+                return True
+            else:
+                print(f"Falha ao enviar mensagem para {to_number}: {response.text}")
+                return False
+        except Exception as e:
+            print(f"Erro ao enviar mensagem: {str(e)}")
+            return False
+
+    def forward_message_to_qwen(self, message):
+        """
+        Encaminha a mensagem do cliente para a IA (Qwen) e retorna a resposta.
+        Args:
+            message (str): Pergunta ou mensagem do cliente.
+        Returns:
+            str: Resposta gerada pela IA.
+        """
+        try:
+            # Simulação de chamada à API do Qwen
+            # Substitua esta URL e lógica pela integração real com a IA
+            qwen_url = "https://api.qwen.com/v1/chat"
+            headers = {
+                "Authorization": "Bearer SEU_TOKEN_DA_IA",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "question": message
+            }
+
+            response = requests.post(qwen_url, json=payload, headers=headers)
+            if response.status_code == 200:
+                response_data = response.json()
+                answer = response_data.get("answer", "Desculpe, não consegui entender sua pergunta.")
+                return answer
+            else:
+                print(f"Falha ao obter resposta da IA: {response.text}")
+                return "Desculpe, ocorreu um erro ao processar sua solicitação."
+        except Exception as e:
+            print(f"Erro ao encaminhar mensagem para a IA: {str(e)}")
+            return "Desculpe, ocorreu um erro ao processar sua solicitação."
+
+    def get_conversation_history(self, phone_number):
+        """
+        Retorna o histórico de conversas de um cliente específico.
+        Args:
+            phone_number (str): Número de telefone do cliente.
+        Returns:
+            list: Lista de mensagens da conversa.
+        """
+        return self.conversations.get(phone_number, {}).get("messages", [])
+
+    def assign_conversation_to_seller(self, phone_number, seller_id):
+        """
+        Atribui uma conversa ativa a um vendedor específico.
+        Args:
+            phone_number (str): Número de telefone do cliente.
+            seller_id (str): ID do vendedor que assumirá a conversa.
+        """
+        if phone_number in self.conversations:
+            self.conversations[phone_number]["assigned_to"] = seller_id
+            print(f"Conversa com {phone_number} atribuída ao vendedor {seller_id}")
+        else:
+            print(f"Nenhuma conversa encontrada para {phone_number}")

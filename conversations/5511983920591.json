@@ -1,0 +1,140 @@
+{
+    "name": "Giulia De Conti",
+    "profile_pic": "",
+    "mode": "auto",
+    "messages": [
+        {
+            "type": "text",
+            "content": "Oie",
+            "from": "cliente",
+            "timestamp": "11:12 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! 😊 Como posso te ajudar hoje?",
+            "from": "qwen",
+            "timestamp": "11:12 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi, tudo bem?",
+            "from": "cliente",
+            "timestamp": "11:13 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! Tudo bem, sim, e você? Como posso te ajudar hoje? 😊",
+            "from": "qwen",
+            "timestamp": "11:13 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá",
+            "from": "cliente",
+            "timestamp": "18:01 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "19:45 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "10:41 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi! 😊 Como posso te ajudar hoje?",
+            "from": "qwen",
+            "timestamp": "10:41 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "gatinha",
+            "from": "vendedor",
+            "timestamp": "18:47 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "te amu muito!",
+            "from": "vendedor",
+            "timestamp": "18:47 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "gata?",
+            "from": "vendedor",
+            "timestamp": "19:08 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "nao tão chegando as msg?",
+            "from": "vendedor",
+            "timestamp": "19:08 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "ou vc ta me ingnorano?",
+            "from": "vendedor",
+            "timestamp": "19:08 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "19:35 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi! 😊 Qual seu nome, por favor? Assim posso te ajudar melhor!",
+            "from": "qwen",
+            "timestamp": "19:35 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Giulia",
+            "from": "cliente",
+            "timestamp": "19:35 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi, Giulia! 😊 Como posso te ajudar hoje?",
+            "from": "qwen",
+            "timestamp": "19:35 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "oi, meu amor",
+            "from": "vendedor",
+            "timestamp": "19:36 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi babe",
+            "from": "cliente",
+            "timestamp": "19:36 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "te amo!!",
+            "from": "vendedor",
+            "timestamp": "19:36 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Te amooo",
+            "from": "cliente",
+            "timestamp": "19:36 24/03/25"
+        },
+        {
+            "type": "image",
+            "content": "",
+            "media_url": "images\\IMG_3558.jpg",
+            "from": "qwen",
+            "timestamp": "19:39 24/03/25"
+        }
+    ]
+}

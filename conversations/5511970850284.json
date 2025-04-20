@@ -1,0 +1,210 @@
+{
+    "name": "Saulo Mucci",
+    "profile_pic": "",
+    "mode": "human",
+    "messages": [
+        {
+            "type": "text",
+            "content": "Teste",
+            "from": "cliente",
+            "timestamp": "11:50 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! Como posso ajudar você hoje? Por favor, me informe seu nome para que eu possa atendê-lo melhor. 😊",
+            "from": "qwen",
+            "timestamp": "11:50 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "oi!",
+            "from": "vendedor",
+            "timestamp": "10:15 25/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Qual seu nome?",
+            "from": "cliente",
+            "timestamp": "13:56 25/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Qual seu nome?",
+            "from": "cliente",
+            "timestamp": "13:58 25/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! Meu nome é Atendente MP Tintas. Qual seu nome para eu te ajudar melhor? 😊",
+            "from": "qwen",
+            "timestamp": "13:58 25/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:16 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:23 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! Meu nome é Atendente MP Tintas. Qual seu nome para que eu possa te ajudar melhor?",
+            "from": "qwen",
+            "timestamp": "13:23 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Valdecy",
+            "from": "cliente",
+            "timestamp": "13:24 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:31 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "10:57 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá, Sr. Valdecy! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "10:58 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1899597177535747_20250328105842.oga",
+            "from": "cliente",
+            "timestamp": "10:58 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "O rendimento da Atinte Epoque de 18 litros é de aproximadamente 130 m² por demão. \n\nSe precisar de mais detalhes sobre aplicação ou outras informações, estou à disposição, Sr. Valdecy.",
+            "from": "qwen",
+            "timestamp": "10:58 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1212399680417997_20250328110909.oga",
+            "from": "cliente",
+            "timestamp": "11:09 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\671811875266190_20250328111102.oga",
+            "from": "cliente",
+            "timestamp": "11:11 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá, Sr. Valdecy! Para uma área de 70 metros quadrados, você precisará de aproximadamente 5,4 litros de tinta epóxi por demão (considerando o rendimento de 26 m² por galão de 3,6 litros). Se for aplicar duas demãos, recomendo adquirir um galão de 3,6 litros e um galão adicional para garantir. \n\nPrecisa de ajuda para escolher a cor ou método de aplicação? Estou à disposição!",
+            "from": "qwen",
+            "timestamp": "11:11 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1199575578265478_20250328111241.oga",
+            "from": "cliente",
+            "timestamp": "11:12 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá, Sr. Valdecy! Percebi que há uma dúvida sobre o cálculo de rendimento. Vamos revisar juntos: \n\nPara 70 m²:  \n- **1ª demão**: 70 ÷ 26 m²/galão = ~2,7 litros  \n- **2ª demão**: + ~2,7 litros  \n- **Total**: ~5,4 litros (recomendo comprar 2 galões de 3,6L para garantir).  \n\nO balde de 18L (130 m²/demão) seria excessivo para sua área.  \n\nPosso esclarecer algo mais sobre a aplicação ou cores?",
+            "from": "qwen",
+            "timestamp": "11:12 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1055658956581140_20250328140645.oga",
+            "from": "cliente",
+            "timestamp": "14:06 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Para pintar uma área de 70 metros na cor vermelha, você precisará de:\n\nGalão de 3,6L de Tinta Epóxi Vermelha: R$ 399,00 (por ser cor vibrante)\nRecomendo comprar 2 galões para fazer as duas demãos necessárias, totalizando R$ 798,00.\n\nImportante:\n- O rendimento é de aproximadamente 26m² por galão\n- São necessárias duas demãos para um acabamento perfeito\n- O preço já inclui o catalisador\n- Entrega gratuita para Grande São Paulo em pedidos até 12h\n\nPosso ajudar com mais alguma informação sobre a aplicação ou método de pagamento?",
+            "from": "qwen",
+            "timestamp": "14:06 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1180162180407110_20250328142641.oga",
+            "from": "cliente",
+            "timestamp": "14:26 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\518667601031952_20250328143613.oga",
+            "from": "cliente",
+            "timestamp": "14:36 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Me manda o pix",
+            "from": "cliente",
+            "timestamp": "14:42 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Nossa chave PIX é: contato@tintaepoxi.com\n\nApós realizar o pagamento, por favor, me envie o comprovante para que eu possa dar andamento ao seu pedido. Lembro que oferecemos 6% de desconto para pagamentos via PIX, então o valor final dos dois galões de tinta epóxi vermelha será de R$ 750,12.\n\nPosso ajudar com mais alguma informação?",
+            "from": "qwen",
+            "timestamp": "14:42 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\3513472962280865_20250328144352.oga",
+            "from": "cliente",
+            "timestamp": "14:43 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sr. Valdecy, sua cor escolhida foi Vermelho Segurança. Você está fazendo a compra de 2 galões de 3,6L da tinta epóxi na cor vermelha para cobrir uma área de 70m².\n\nPosso ajudar com mais alguma informação?",
+            "from": "qwen",
+            "timestamp": "14:43 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\643214865114689_20250328144654.oga",
+            "from": "cliente",
+            "timestamp": "14:46 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sr. Valdecy, entendo que deseja falar com o André. No entanto, sou o atendente virtual da MP Tintas e não posso transferir diretamente para ele. Sugiro que você faça contato novamente durante o horário comercial (segunda a sexta, das 8h às 18h) para falar diretamente com um de nossos especialistas.\n\nPosso ajudar você com mais alguma informação sobre a tinta epóxi enquanto isso?",
+            "from": "qwen",
+            "timestamp": "14:47 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\683286224041636_20250328144750.oga",
+            "from": "cliente",
+            "timestamp": "14:47 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "O telefone fixo da MP Tintas não está disponível na base de dados fornecida. Neste caso, para garantir uma informação precisa, sugiro que entre em contato durante o horário comercial (segunda a sexta, das 8h às 18h) para obter o número do telefone fixo atualizado.",
+            "from": "qwen",
+            "timestamp": "14:47 28/03/25"
+        }
+    ],
+    "status": "idle"
+}

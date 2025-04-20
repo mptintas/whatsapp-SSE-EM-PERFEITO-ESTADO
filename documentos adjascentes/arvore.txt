@@ -1,0 +1,128 @@
+whatsapp
+ ┣ .git
+ ┃ ┣ hooks
+ ┃ ┃ ┣ applypatch-msg.sample
+ ┃ ┃ ┣ commit-msg.sample
+ ┃ ┃ ┣ fsmonitor-watchman.sample
+ ┃ ┃ ┣ post-update.sample
+ ┃ ┃ ┣ pre-applypatch.sample
+ ┃ ┃ ┣ pre-commit.sample
+ ┃ ┃ ┣ pre-merge-commit.sample
+ ┃ ┃ ┣ pre-push.sample
+ ┃ ┃ ┣ pre-rebase.sample
+ ┃ ┃ ┣ pre-receive.sample
+ ┃ ┃ ┣ prepare-commit-msg.sample
+ ┃ ┃ ┣ push-to-checkout.sample
+ ┃ ┃ ┣ sendemail-validate.sample
+ ┃ ┃ ┗ update.sample
+ ┃ ┣ info
+ ┃ ┃ ┗ exclude
+ ┃ ┣ objects
+ ┃ ┃ ┣ info
+ ┃ ┃ ┗ pack
+ ┃ ┣ refs
+ ┃ ┃ ┣ heads
+ ┃ ┃ ┗ tags
+ ┃ ┣ config
+ ┃ ┣ description
+ ┃ ┗ HEAD
+ ┣ conversations
+ ┃ ┣ 5511932324219.json
+ ┃ ┣ 5511964648888.json
+ ┃ ┣ 5511970850284.json
+ ┃ ┣ 5511980852836.json
+ ┃ ┗ 5511983920591.json
+ ┣ media
+ ┃ ┣ audio
+ ┃ ┣ documents
+ ┃ ┃ ┗ BRASMID ESTOQUE.docx
+ ┃ ┣ images
+ ┃ ┃ ┣ 959670616339729_20250324184450.jpg
+ ┃ ┃ ┣ Captura de tela 2024-12-20 085521.png
+ ┃ ┃ ┣ Captura de tela 2024-12-20 085528.png
+ ┃ ┃ ┣ IMG_3514.jpg
+ ┃ ┃ ┣ IMG_3516.jpg
+ ┃ ┃ ┣ IMG_3523.jpg
+ ┃ ┃ ┣ IMG_3558.jpg
+ ┃ ┃ ┗ IMG_3562.jpg
+ ┃ ┗ video
+ ┣ node_modules
+ ┃ ┣ opus-recorder
+ ┃ ┃ ┣ dist
+ ┃ ┃ ┃ ┣ decoderWorker.min.js
+ ┃ ┃ ┃ ┣ decoderWorker.min.wasm
+ ┃ ┃ ┃ ┣ encoderWorker.min.js
+ ┃ ┃ ┃ ┣ recorder.min.js
+ ┃ ┃ ┃ ┗ waveWorker.min.js
+ ┃ ┃ ┣ LICENSE.md
+ ┃ ┃ ┣ package.json
+ ┃ ┃ ┗ README.md
+ ┃ ┗ .package-lock.json
+ ┣ received_messages
+ ┣ static
+ ┃ ┣ app.js
+ ┃ ┣ commands.js
+ ┃ ┣ conversation.js
+ ┃ ┣ encoderWorker.min.js
+ ┃ ┣ favicon.ico
+ ┃ ┣ media.js
+ ┃ ┣ styles.css
+ ┃ ┗ ui.js
+ ┣ templates
+ ┃ ┗ index.html
+ ┣ __pycache__
+ ┃ ┣ api_key_manager.cpython-313.pyc
+ ┃ ┣ audio_processor.cpython-313.pyc
+ ┃ ┣ env_config.cpython-313.pyc
+ ┃ ┣ media_handler.cpython-313.pyc
+ ┃ ┣ qwen1.cpython-313.pyc
+ ┃ ┣ storage_manager.cpython-313.pyc
+ ┃ ┗ WhatsApp_Manager.cpython-313.pyc
+ ┣ .gcloudignore
+ ┣ 5511947665806.json
+ ┣ 5511964648888.json
+ ┣ 5511970850284.json
+ ┣ All_Of_them.txt
+ ┣ Análise Completa do Tópico 1.docx
+ ┣ api_key_manager.py
+ ┣ app.log
+ ┣ app.yaml
+ ┣ audio_processor.py
+ ┣ Backup completotxt.txt
+ ┣ BackUp-01-04-2025.txt
+ ┣ BackUp.py
+ ┣ Centro-Comunica.txt
+ ┣ config.json
+ ┣ Dados.txt
+ ┣ DADOS_FINAIS.txt
+ ┣ env_config.py
+ ┣ instrucaoFixa.txt
+ ┣ interface.txt
+ ┣ INTERFACE_COMPLETA_COM_WHATSAPP.txt
+ ┣ main.py
+ ┣ media_handler.py
+ ┣ migrar.py
+ ┣ nome do MPzinho.txt
+ ┣ package-lock.json
+ ┣ package.json
+ ┣ PARAODEEP.txt
+ ┣ Primeiro Esqueleto.txt
+ ┣ PROJETO.TXT
+ ┣ Quero que crie para mim um programa.txt
+ ┣ qwen1.py
+ ┣ requirements.txt
+ ┣ storage_manager.py
+ ┣ tempCodeRunnerFile.py
+ ┣ TODOS-28-03-2025.txt
+ ┣ todos2.txt
+ ┣ todos3.txt
+ ┣ todos4.txt
+ ┣ todos5.txt
+ ┣ todos6.txt
+ ┣ voice_1743433226988.mp3
+ ┣ voice_converted.mp3
+ ┣ Webhook_Server.pyx
+ ┣ whats copy.py
+ ┣ WhatsApp_Manager.py
+ ┣ ~$álise Completa do Tópico 1.docx
+ ┗ ~WRL3861.tmp

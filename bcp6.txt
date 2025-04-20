@@ -1,0 +1,4479 @@
+# BACKUP CRIADO EM: 2025-04-17 21:25:22
+# Total de arquivos: 6
+
+# INÍCIO DO ARQUIVO: realtime_service.py (1/6) 
+# realtime_service.py
+import json
+import time
+import uuid
+import threading
+import atexit
+from datetime import datetime
+from queue import Queue, Empty
+from flask import Response, request, jsonify, stream_with_context
+
+class SSEClient:
+    """Representa um cliente conectado via SSE"""
+    def __init__(self, client_id, response=None):
+        self.client_id = client_id
+        self.response = response
+        self.phone_number = None  # Conversa que o cliente está visualizando
+        self.last_event_id = 0
+        self.connected_at = datetime.now()
+        self.queue = Queue()  # Fila de eventos para este cliente
+        
+    def set_phone_number(self, phone_number):
+        """Define qual número de telefone o cliente está observando"""
+        self.phone_number = phone_number
+        
+    def send_event(self, event_type, data, event_id=None):
+        """Envia um evento SSE para este cliente"""
+        if event_id is None:
+            self.last_event_id += 1
+            event_id = self.last_event_id
+            
+        event = {
+            "id": event_id,
+            "type": event_type,
+            "data": data
+        }
+        
+        # Adiciona à fila do cliente para ser processado pelo stream
+        self.queue.put(event)
+        return True
+
+
+class RealtimeService:
+    """Gerenciador de comunicação em tempo real via SSE"""
+    def __init__(self):
+        self.clients = {}  # Mapeamento de client_id para objeto SSEClient
+        self.client_lock = threading.RLock()  # Para acesso thread-safe
+        self.event_queue = Queue()  # Fila de eventos a serem processados
+        self.event_thread = None  # Thread para processamento de eventos
+        self.running = False
+        self.client_phones = {}  # Mapeamento de phone_number para lista de client_ids
+        
+    def start(self):
+        """Inicia o serviço de eventos em tempo real"""
+        if self.running:
+            return
+            
+        self.running = True
+        self.event_thread = threading.Thread(target=self._process_event_queue)
+        self.event_thread.daemon = True
+        self.event_thread.start()
+        print("Serviço de eventos em tempo real iniciado")
+        
+    def stop(self):
+        """Para o serviço de eventos em tempo real"""
+        self.running = False
+        if self.event_thread:
+            self.event_thread.join(timeout=5.0)
+        print("Serviço de eventos em tempo real parado")
+            
+    def _process_event_queue(self):
+        """Processa a fila de eventos em background"""
+        while self.running:
+            try:
+                event = self.event_queue.get(timeout=1.0)
+                self._distribute_event(event)
+                self.event_queue.task_done()
+            except Empty:
+                continue
+            except Exception as e:
+                print(f"Erro ao processar evento: {str(e)}")
+                
+    def _distribute_event(self, event):
+        """Distribui um evento para os clientes apropriados"""
+        event_type = event.get("type")
+        event_data = event.get("data")
+        target_phone = event.get("phone_number")
+        
+        with self.client_lock:
+            # Se temos um telefone alvo, enviamos apenas para clientes observando esse número
+            if target_phone:
+                client_ids = self.client_phones.get(target_phone, [])
+                for client_id in client_ids:
+                    if client_id in self.clients:
+                        try:
+                            self.clients[client_id].send_event(event_type, event_data)
+                        except Exception as e:
+                            print(f"Erro ao enviar evento para cliente {client_id}: {str(e)}")
+            else:
+                # Broadcast para todos os clientes
+                for client_id, client in list(self.clients.items()):
+                    try:
+                        client.send_event(event_type, event_data)
+                    except Exception as e:
+                        print(f"Erro ao enviar evento para cliente {client_id}: {str(e)}")
+                        # Remove cliente com erro
+                        self.clients.pop(client_id, None)
+                    
+    def register_client(self, client_id):
+        """Registra um novo cliente SSE"""
+        with self.client_lock:
+            # Se o cliente já existe, mantém a mesma instância
+            if client_id in self.clients:
+                return self.clients[client_id]
+                
+            client = SSEClient(client_id)
+            self.clients[client_id] = client
+            print(f"Cliente {client_id} registrado")
+            return client
+            
+    def unregister_client(self, client_id):
+        """Remove um cliente SSE"""
+        with self.client_lock:
+            if client_id in self.clients:
+                client = self.clients[client_id]
+                
+                # Remove do mapeamento de telefones
+                if client.phone_number and client.phone_number in self.client_phones:
+                    if client_id in self.client_phones[client.phone_number]:
+                        self.client_phones[client.phone_number].remove(client_id)
+                        
+                # Remove do dicionário de clientes
+                self.clients.pop(client_id, None)
+                print(f"Cliente {client_id} removido")
+            
+    def set_client_phone(self, client_id, phone_number):
+        """Define qual conversa o cliente está visualizando"""
+        with self.client_lock:
+            if client_id in self.clients:
+                client = self.clients[client_id]
+                
+                # Remove do mapeamento anterior, se existir
+                if client.phone_number and client.phone_number in self.client_phones:
+                    if client_id in self.client_phones[client.phone_number]:
+                        self.client_phones[client.phone_number].remove(client_id)
+                
+                # Define o novo número
+                client.set_phone_number(phone_number)
+                
+                # Adiciona ao novo mapeamento
+                if phone_number not in self.client_phones:
+                    self.client_phones[phone_number] = []
+                if client_id not in self.client_phones[phone_number]:
+                    self.client_phones[phone_number].append(client_id)
+                    
+                print(f"Cliente {client_id} observando {phone_number}")
+                
+    def notify_new_message(self, phone_number, message_data):
+        """Notifica sobre uma nova mensagem"""
+        event = {
+            "type": "new_message",
+            "data": {
+                "phone_number": phone_number,
+                "message": message_data
+            },
+            "phone_number": phone_number
+        }
+        self.event_queue.put(event)
+        print(f"Evento de nova mensagem para {phone_number} enfileirado")
+        
+    def notify_message_status(self, phone_number, message_id, status):
+        """Notifica sobre mudança de status de uma mensagem"""
+        event = {
+            "type": "message_status",
+            "data": {
+                "phone_number": phone_number,
+                "message_id": message_id,
+                "status": status
+            },
+            "phone_number": phone_number
+        }
+        self.event_queue.put(event)
+        print(f"Evento de status de mensagem para {phone_number} enfileirado")
+        
+    def notify_conversation_update(self, phone_number, update_type, data=None):
+        """Notifica sobre atualizações gerais em uma conversa"""
+        event = {
+            "type": "conversation_update",
+            "data": {
+                "phone_number": phone_number,
+                "update_type": update_type,
+                "data": data or {}
+            },
+            "phone_number": phone_number
+        }
+        self.event_queue.put(event)
+        print(f"Evento de atualização de conversa para {phone_number} enfileirado")
+        
+    def broadcast_system_event(self, event_type, data=None):
+        """Envia um evento de sistema para todos os clientes"""
+        event = {
+            "type": event_type,
+            "data": data or {},
+            "phone_number": None  # Broadcast para todos
+        }
+        self.event_queue.put(event)
+        print(f"Evento de sistema {event_type} enfileirado para broadcast")
+
+
+def create_sse_endpoint(app, realtime_service):
+    """Cria os endpoints SSE no aplicativo Flask"""
+    
+    @app.route('/events')
+    def sse_stream():
+        """Endpoint principal para conexões SSE"""
+        # Verifica se o cliente suporta SSE
+        if not request.headers.get('Accept') == 'text/event-stream':
+            return "Este endpoint requer suporte a Server-Sent Events", 400
+            
+        # Recupera ou gera um ID de cliente
+        client_id = request.args.get('client_id')
+        if not client_id:
+            client_id = str(uuid.uuid4())
+            
+        # Registra o cliente
+        client = realtime_service.register_client(client_id)
+        
+        # Configura a resposta SSE
+        def generate():
+            # Envia evento inicial com o ID do cliente
+            yield f"id:0\nevent:connected\ndata:{json.dumps({'client_id': client_id})}\n\n"
+            
+            try:
+                # Loop principal para enviar eventos
+                while True:
+                    # Tenta obter um evento da fila do cliente
+                    try:
+                        event = client.queue.get(timeout=20.0)
+                        event_id = event.get("id", 0)
+                        event_type = event.get("type", "message")
+                        event_data = json.dumps(event.get("data", {}))
+                        
+                        # Formata o evento SSE
+                        yield f"id:{event_id}\nevent:{event_type}\ndata:{event_data}\n\n"
+                        client.queue.task_done()
+                    except Empty:
+                        # Envia heartbeat se não houver eventos
+                        yield f"event:heartbeat\ndata:{json.dumps({'timestamp': datetime.now().isoformat()})}\n\n"
+            except GeneratorExit:
+                # Cliente desconectou
+                realtime_service.unregister_client(client_id)
+            except Exception as e:
+                print(f"Erro no stream de eventos: {str(e)}")
+                realtime_service.unregister_client(client_id)
+        
+        response = Response(
+            stream_with_context(generate()),
+            content_type='text/event-stream'
+        )
+        
+        # Configura cabeçalhos para SSE
+        response.headers['Cache-Control'] = 'no-cache'
+        response.headers['X-Accel-Buffering'] = 'no'  # Para Nginx
+        response.headers['Connection'] = 'keep-alive'
+        
+        return response
+        
+    @app.route('/events/subscribe/<phone_number>', methods=['POST'])
+    def subscribe_to_phone(phone_number):
+        """Endpoint para assinar atualizações de um número específico"""
+        client_id = request.json.get('client_id')
+        if not client_id:
+            return jsonify({"status": "error", "message": "client_id é obrigatório"}), 400
+            
+        realtime_service.set_client_phone(client_id, phone_number)
+        
+        # Marca mensagens como lidas quando o cliente se inscreve
+        if phone_number in app.whatsapp_manager.conversations:
+            # Atualiza o contador de não lidas
+            if 'unread_count' not in app.whatsapp_manager.conversations[phone_number]:
+                app.whatsapp_manager.conversations[phone_number]['unread_count'] = 0
+                
+            app.whatsapp_manager.conversations[phone_number]['unread_count'] = 0
+            app.whatsapp_manager.save_conversation(phone_number)
+            
+            # Notifica outros clientes sobre a mudança
+            realtime_service.notify_conversation_update(
+                phone_number, 
+                "unread_updated", 
+                {"unread_count": 0}
+            )
+            
+        return jsonify({"status": "success"})
+
+
+def modify_whatsapp_manager(whatsapp_manager, realtime_service):
+    """Modifica o WhatsAppManager para integrar com o RealtimeService"""
+    
+    # Salva referências originais dos métodos
+    original_handle_incoming = whatsapp_manager.handle_incoming_message
+    original_send_message = whatsapp_manager.send_message_to_whatsapp
+    
+    # Sobrescreve o método handle_incoming_message
+    def enhanced_handle_incoming(data):
+        phone_number = original_handle_incoming(data)
+        
+        if phone_number:
+            # Obtém a última mensagem adicionada
+            if phone_number in whatsapp_manager.conversations:
+                conversation = whatsapp_manager.conversations[phone_number]
+                if "messages" in conversation and conversation["messages"]:
+                    last_message = conversation["messages"][-1]
+                    
+                    # Adiciona ID único se não existir
+                    if "id" not in last_message:
+                        last_message["id"] = str(uuid.uuid4())
+                        whatsapp_manager.save_conversation(phone_number)
+                    
+                    # Incrementa contador de não lidas
+                    if "unread_count" not in conversation:
+                        conversation["unread_count"] = 0
+                    conversation["unread_count"] += 1
+                    whatsapp_manager.save_conversation(phone_number)
+                    
+                    # Notifica clientes sobre nova mensagem
+                    realtime_service.notify_new_message(phone_number, last_message)
+                    
+                    # Notifica sobre atualização do contador de não lidas
+                    realtime_service.notify_conversation_update(
+                        phone_number,
+                        "unread_updated",
+                        {"unread_count": conversation["unread_count"]}
+                    )
+        
+        return phone_number
+    
+    # Sobrescreve o método send_message_to_whatsapp
+    def enhanced_send_message(to_number, message, media_type=None, media_path=None):
+        # Gera ID único para a mensagem
+        message_id = str(uuid.uuid4())
+        
+        # Adiciona a mensagem com status "sending"
+        if to_number in whatsapp_manager.conversations:
+            conversation = whatsapp_manager.conversations[to_number]
+            sender = "qwen" if conversation.get("mode", "auto") == "auto" else "vendedor"
+            timestamp = datetime.now().strftime("%H:%M %d/%m/%y")
+            
+            # Cria objeto de mensagem
+            message_obj = {
+                "id": message_id,
+                "type": "text" if media_type is None else media_type,
+                "content": message,
+                "from": sender,
+                "timestamp": timestamp,
+                "status": "sending"
+            }
+            
+            if media_type and media_path:
+                message_obj["media_url"] = media_path
+            
+            # Adiciona à conversa
+            if "messages" not in conversation:
+                conversation["messages"] = []
+            conversation["messages"].append(message_obj)
+            whatsapp_manager.save_conversation(to_number)
+            
+            # Notifica clientes sobre nova mensagem
+            realtime_service.notify_new_message(to_number, message_obj)
+        
+        # Chama o método original para enviar
+        result = original_send_message(to_number, message, media_type, media_path)
+        
+        # Atualiza o status com base no resultado
+        if to_number in whatsapp_manager.conversations:
+            conversation = whatsapp_manager.conversations[to_number]
+            if "messages" in conversation:
+                for msg in reversed(conversation["messages"]):
+                    if msg.get("id") == message_id:
+                        msg["status"] = "delivered" if result else "failed"
+                        whatsapp_manager.save_conversation(to_number)
+                        
+                        # Notifica sobre mudança de status
+                        realtime_service.notify_message_status(
+                            to_number,
+                            message_id,
+                            msg["status"]
+                        )
+                        break
+        
+        return result
+    
+    # Substitui os métodos originais
+    whatsapp_manager.handle_incoming_message = enhanced_handle_incoming
+    whatsapp_manager.send_message_to_whatsapp = enhanced_send_message
+    
+    # Adiciona método para marcar mensagens como lidas
+    def mark_messages_read(phone_number):
+        if phone_number in whatsapp_manager.conversations:
+            conversation = whatsapp_manager.conversations[phone_number]
+            if conversation.get("unread_count", 0) > 0:
+                conversation["unread_count"] = 0
+                whatsapp_manager.save_conversation(phone_number)
+                
+                # Notifica sobre atualização do contador
+                realtime_service.notify_conversation_update(
+                    phone_number,
+                    "unread_updated",
+                    {"unread_count": 0}
+                )
+                return True
+        return False
+    
+    # Adiciona o novo método ao WhatsAppManager
+    whatsapp_manager.mark_messages_read = mark_messages_read
+
+
+def initialize_realtime_service(app, whatsapp_manager):
+    """Inicializa o serviço de tempo real e o integra ao aplicativo Flask"""
+    # Cria instância do serviço
+    realtime_service = RealtimeService()
+    
+    # Inicia o serviço
+    realtime_service.start()
+    
+    # Registra para limpeza ao desligar
+    atexit.register(realtime_service.stop)
+    
+    # Cria endpoints SSE
+    create_sse_endpoint(app, realtime_service)
+    
+    # Modifica o WhatsAppManager
+    modify_whatsapp_manager(whatsapp_manager, realtime_service)
+    
+    # Armazena referência no aplicativo
+    app.realtime_service = realtime_service
+    
+    # Adiciona rota para marcar mensagens como lidas
+    @app.route('/mark_read/<phone_number>', methods=['POST'])
+    def mark_read(phone_number):
+        success = whatsapp_manager.mark_messages_read(phone_number)
+        return jsonify({"status": "success" if success else "error"})
+    
+    # Adiciona rota para verificar status do serviço
+    @app.route('/events/status', methods=['GET'])
+    def service_status():
+        return jsonify({
+            "status": "online",
+            "clients": len(realtime_service.clients),
+            "timestamp": datetime.now().isoformat()
+        })
+    
+    return realtime_service
+# FIM DO ARQUIVO: realtime_service.py 
+
+// INÍCIO DO ARQUIVO: static\app.js (2/6) 
+/** 
+ * app.js
+ * 
+ * Principal módulo da aplicação
+ * Contém o objeto global App e funções principais
+ */
+
+// Objeto global que será usado pelos event handlers
+window.App = {
+    // Estado da aplicação
+    currentPhone: null,
+    currentConversation: null,
+    mediaType: null,
+    mediaInfo: null,
+    currentLocation: null,
+    isSubmitting: false,
+    settings: {}, // Adicione esta linha para inicializar settings
+    
+    // Inicialização da aplicação - ponto central para todos os módulos
+    init: function() {
+        console.log("Inicializando WhatsApp Web Admin");
+        
+        // Configura o evento de tecla nos campos de mensagem
+        const messageInput = document.getElementById('message-input');
+        if (messageInput) {
+            messageInput.addEventListener('keydown', function(e) {
+                // Envia ao pressionar Enter (sem Shift)
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    App.sendMessage();
+                }
+                
+                // Exibe o menu de comandos ao digitar / (e não tiver nada antes)
+                if (e.key === '/' && this.selectionStart === 0) {
+                    App.showCommandMenu && App.showCommandMenu();
+                }
+            });
+            
+            // Monitora a digitação para ocultar o menu de comandos se necessário
+            messageInput.addEventListener('input', function() {
+                if (this.value.length > 0 && !this.value.startsWith('/')) {
+                    App.hideCommandMenu && App.hideCommandMenu();
+                }
+            });
+        }
+        
+        // Configura o filtro de busca
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', this.filterConversations);
+        }
+        
+        // Configura handler para botão de envio
+        const sendButton = document.getElementById('send-button');
+        if (sendButton) {
+            sendButton.addEventListener('click', this.sendMessage);
+        }
+        
+        // Adicionamos um handler para o evento beforeunload para limpar recursos
+        window.addEventListener('beforeunload', function() {
+            // Limpa qualquer stream de áudio ou gravação em andamento
+            App.stopAudioStream && App.stopAudioStream();
+            
+            // Limpa timers e intervalos
+            clearInterval(App.recordingTimer);
+            
+            // Salva scroll e outras configurações se houver persistência
+            App.persistenceHandler && App.persistenceHandler.saveScrollPositions();
+        });
+
+        // Inicializa módulos independentes
+        this.initializeModules();
+    },
+    SSEMessageHandler: function(options) {
+        this.options = options || {};
+        
+        // Método para conectar ao servidor SSE
+        this.connect = function() {
+            console.log("Conectando ao servidor SSE...");
+            
+            try {
+                // Recupera o ID de cliente do localStorage ou cria um novo
+                let clientId = localStorage.getItem('sse_client_id');
+                if (!clientId) {
+                    clientId = this.generateUUID();
+                    localStorage.setItem('sse_client_id', clientId);
+                }
+                
+                // Verifica se o endpoint está disponível antes de conectar
+                fetch('/events/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'online') {
+                            // Inicia a conexão SSE
+                            this.connectSSE(clientId);
+                        } else {
+                            console.log("Servidor SSE não está disponível");
+                            window.dispatchEvent(new Event('sse-disconnected'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Erro ao verificar status do servidor SSE:", error);
+                        window.dispatchEvent(new Event('sse-disconnected'));
+                    });
+            } catch (error) {
+                console.error("Erro ao conectar ao SSE:", error);
+                window.dispatchEvent(new Event('sse-disconnected'));
+            }
+        };
+        
+        // Método auxiliar para conectar ao SSE
+        this.connectSSE = function(clientId) {
+            try {
+                // Inicia a conexão SSE
+                const evtSource = new EventSource(`/events?client_id=${clientId}`);
+                
+                // Configura handlers para eventos
+                evtSource.addEventListener("connected", (event) => {
+                    const data = JSON.parse(event.data);
+                    console.log("Conectado ao servidor SSE com ID:", data.client_id);
+                    this.sseConnected = true;
+                    
+                    // Dispara evento de conexão
+                    window.dispatchEvent(new Event('sse-connected'));
+                });
+                
+                // Evento de nova mensagem
+                evtSource.addEventListener("new_message", (event) => {
+                    const data = JSON.parse(event.data);
+                    console.log("Nova mensagem recebida:", data);
+                    
+                    // Processa a mensagem
+                    if (App.notificationManager) {
+                        App.notificationManager.handleNewMessage(data);
+                    }
+                });
+                
+                // Evento de heartbeat (manter conexão viva)
+                evtSource.addEventListener("heartbeat", () => {
+                    console.log("Heartbeat recebido do servidor SSE");
+                });
+                
+                // Tratamento de erros
+                evtSource.onerror = (error) => {
+                    console.error("Erro na conexão SSE:", error);
+                    this.sseConnected = false;
+                    
+                    // Dispara evento de desconexão
+                    window.dispatchEvent(new Event('sse-disconnected'));
+                    
+                    // Tentar reconectar após um tempo
+                    setTimeout(() => {
+                        if (!this.sseConnected) {
+                            console.log("Tentando reconectar ao servidor SSE...");
+                            this.connect();
+                        }
+                    }, 5000);
+                };
+                
+                // Armazena a referência para poder fechar depois
+                this.evtSource = evtSource;
+                this.sseConnected = true;
+            } catch (error) {
+                console.error("Erro ao conectar ao SSE:", error);
+                this.sseConnected = false;
+                window.dispatchEvent(new Event('sse-disconnected'));
+            }
+        };
+        
+        // Método para desconectar do servidor SSE
+        this.disconnect = function() {
+            if (this.evtSource) {
+                console.log("Desconectando do servidor SSE");
+                this.evtSource.close();
+                this.evtSource = null;
+            }
+        };
+        
+        // Método auxiliar para gerar UUID
+        this.generateUUID = function() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        };
+        
+        return this;
+    },
+    // Inicializa todos os módulos externos
+    initializeModules: function() {
+        // Os módulos devem se registrar automaticamente ao serem carregados
+        // Esta função serve para inicializações adicionais ou verificações
+        console.log("Verificando inicialização de módulos...");
+        
+        // Verifica se o módulo de notificações foi inicializado
+        if (!this.notificationManager) {
+            console.warn("Módulo de notificações não inicializado!");
+        }
+        
+        // Verifica se o módulo de persistência foi inicializado
+        if (!this.persistenceHandler) {
+            console.warn("Módulo de persistência não inicializado!");
+        }
+        
+        // Verifica se o módulo de comandos foi inicializado
+        if (!this.commandManager && this.registerCommand) {
+            // Registra comandos básicos se o módulo estiver disponível
+            this.registerCommand('ajuda', {
+                description: 'Mostra todos os comandos disponíveis',
+                handler: () => this.showAllCommands && this.showAllCommands()
+            });
+        }
+    },
+    
+    // Função para filtrar conversas baseado na busca
+    filterConversations: function() {
+        const searchText = document.getElementById('search-input').value.toLowerCase();
+        const conversations = document.querySelectorAll('.conversation-item');
+        
+        conversations.forEach(convo => {
+            const name = convo.querySelector('.name').textContent.toLowerCase();
+            const phone = convo.querySelector('.phone').textContent.toLowerCase();
+            
+            if (name.includes(searchText) || phone.includes(searchText)) {
+                convo.style.display = 'flex';
+            } else {
+                convo.style.display = 'none';
+            }
+        });
+    },
+    
+    // Inicia uma nova conversa com um número específico
+    startNewConversation: function() {
+        const phoneInput = document.getElementById('new-number');
+        const phoneNumber = phoneInput.value.trim();
+        
+        if (!phoneNumber) {
+            this.showNotification("Digite um número de telefone!", true);
+            return;
+        }
+        
+        // Verifica se a conversa já existe
+        const existingConvo = document.querySelector(`.conversation-item[data-phone="${phoneNumber}"]`);
+        if (existingConvo) {
+            // Se já existe, apenas carrega
+            this.loadConversation(phoneNumber);
+            phoneInput.value = '';
+            return;
+        }
+        
+        // Atualiza o estado da aplicação
+        this.currentPhone = phoneNumber;
+        
+        // Limpa a entrada
+        phoneInput.value = '';
+        
+        // Inicia a conversa (enviando uma mensagem inicial)
+        const messageInput = document.getElementById('message-input');
+        messageInput.value = "Olá! Estou iniciando uma nova conversa.";
+        
+        // Envia a mensagem
+        this.sendMessage();
+    },
+
+    // Método unificado para atualizar o estado da aplicação
+    updateAppState: function(phoneNumber, conversationData) {
+        // Atualiza o estado interno de maneira consistente
+        this.currentPhone = phoneNumber;
+        this.currentConversation = conversationData;
+        
+        // Notifica outros módulos sobre a mudança de estado
+        if (this.persistenceHandler) {
+            this.persistenceHandler.saveCurrentConversation(phoneNumber);
+        }
+        
+        // Atualiza a interface
+        this.updateConversationHeader(conversationData);
+    },
+
+    // Função para mostrar notificações na interface
+    showNotification: function(message, isError = false) {
+        const notification = document.createElement('div');
+        notification.className = 'notification' + (isError ? ' error' : '');
+        notification.innerHTML = `<i class="fas fa-${isError ? 'exclamation-circle' : 'check-circle'}"></i> ${message}`;
+        document.body.appendChild(notification);
+        
+        // Remove a notificação após alguns segundos
+        setTimeout(() => {
+            notification.classList.add('fade-out');
+            setTimeout(() => notification.remove(), 500);
+        }, 3000);
+    },
+
+    // Função para determinar se uma URL é do GCS
+    isGcsUrl: function(url) {
+        return url && (
+            url.includes('storage.googleapis.com') || 
+            url.includes('storage.cloud.google.com')
+        );
+    },
+    
+    // Função para obter a URL completa (local ou GCS)
+    getMediaUrl: function(mediaPath) {
+        // Verificar se o caminho é nulo ou vazio
+        if (!mediaPath) {
+            console.log("Aviso: Caminho de mídia nulo ou vazio");
+            return ''; // Retorna uma string vazia para evitar erros
+        }
+        
+        // Se já for uma URL completa do GCS, usa ela diretamente
+        if (this.isGcsUrl(mediaPath)) {
+            return mediaPath;
+        }
+        
+        // Se for um caminho relativo
+        if (typeof mediaPath === 'string') {
+            // Verifica se começa com /media/ e remove se necessário
+            if (mediaPath.startsWith('/media/')) {
+                mediaPath = mediaPath.substring(7);
+            }
+            
+            // Tenta localizar no GCS primeiro
+            const bucketName = 'aerial-acre-455118-a9-media';
+            return `https://storage.googleapis.com/${bucketName}/${mediaPath}`;
+        }
+        
+        // Fallback para o caminho local
+        return `/media/${mediaPath}`;
+    },
+
+    // Carrega uma conversa do servidor
+    loadConversation: function(phone) {
+        console.log("Carregando conversa:", phone);
+        
+        fetch('/conversation/' + phone)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erro ao carregar conversa: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Atualiza o estado da aplicação
+                this.updateAppState(phone, data);
+                
+                // Renderiza as mensagens
+                this.renderConversationMessages(data);
+                
+                // Marca a conversa ativa na lista
+                document.querySelectorAll('.conversation-item').forEach(item => {
+                    item.classList.remove('active');
+                    if (item.getAttribute('data-phone') === phone) {
+                        item.classList.add('active');
+                    }
+                });
+                
+                // Inscreve-se para atualizações em tempo real
+                if (this.notificationManager) {
+                    this.notificationManager.subscribeToPhone(phone);
+                }
+                
+                // Marca as mensagens como lidas
+                this.markMessagesAsRead(phone);
+            })
+            .catch(error => {
+                console.error("Erro ao carregar conversa:", error);
+                this.showNotification("Erro ao carregar conversa: " + error.message, true);
+            });
+    },
+
+    // Renderiza as mensagens da conversa
+    renderConversationMessages: function(conversation) {
+        // Área de mensagens principal
+        const messageArea = document.getElementById('message-area');
+        if (!messageArea) return;
+        
+        // Limpa a área de mensagens
+        messageArea.innerHTML = '';
+        
+        // Verifica se há mensagens
+        if (!conversation.messages || conversation.messages.length === 0) {
+            messageArea.innerHTML = '<div class="empty-state">Nenhuma mensagem encontrada</div>';
+            
+            // Limpa também a área de IA
+            const aiMessageArea = document.getElementById('ai-message-area');
+            if (aiMessageArea) {
+                aiMessageArea.innerHTML = '<div class="empty-state">Nenhuma interação com a IA ainda</div>';
+            }
+            return;
+        }
+        
+        // Se houver muitas mensagens, usar renderização otimizada
+        if (conversation.messages.length > 50) {
+            this.renderOptimizedMessages(conversation, 50);
+        } else {
+            // Renderiza cada mensagem
+            conversation.messages.forEach(msg => {
+                const messageElement = this.createMessageElement(msg);
+                messageArea.appendChild(messageElement);
+            });
+            
+            // Rola para a última mensagem
+            messageArea.scrollTop = messageArea.scrollHeight;
+        }
+        
+        // Atualiza área de mensagens da IA
+        this.updateAIMessages(conversation);
+    },
+    
+    // Atualiza o cabeçalho da conversa
+    updateConversationHeader: function(conversation) {
+        // Atualiza nome do contato
+        const nameElement = document.getElementById('current-contact-name');
+        if (nameElement) {
+            nameElement.textContent = conversation.name || "Cliente";
+        }
+        
+        // Atualiza avatar do contato
+        const avatarElement = document.getElementById('current-contact-avatar');
+        if (avatarElement) {
+            if (conversation.profile_pic) {
+                avatarElement.innerHTML = `<img src="${this.getMediaUrl(conversation.profile_pic)}" alt="${conversation.name || 'Cliente'}">`;
+            } else {
+                const initial = ((conversation.name || 'Cliente')[0] || '?').toUpperCase();
+                avatarElement.innerHTML = `<div class="avatar-placeholder">${initial}</div>`;
+            }
+        }
+        
+        // Atualiza botão de modo
+        const modeButton = document.getElementById('toggle-mode-btn');
+        if (modeButton) {
+            modeButton.style.display = 'inline-block';
+            modeButton.className = conversation.mode === 'human' ? 'human-mode' : 'auto-mode';
+            modeButton.innerHTML = conversation.mode === 'human' ? 
+                '<i class="fas fa-user"></i> Modo Humano' : 
+                '<i class="fas fa-robot"></i> Modo Automático';
+        }
+        
+        // Atualiza botão de compartilhamento
+        const shareButton = document.getElementById('share-conversation-btn');
+        if (shareButton) {
+            shareButton.style.display = 'inline-block';
+        }
+    },
+
+    // Renderização otimizada para conversas longas
+    renderOptimizedMessages: function(conversation, limit = 50) {
+        const messageArea = document.getElementById('message-area');
+        if (!messageArea) return;
+        
+        // Limpa a área de mensagens
+        messageArea.innerHTML = '';
+        
+        // Verifica se há mensagens
+        if (!conversation.messages || conversation.messages.length === 0) {
+            messageArea.innerHTML = '<div class="empty-state">Nenhuma mensagem encontrada</div>';
+            return;
+        }
+        
+        // Pega apenas as últimas 'limit' mensagens
+        const messages = conversation.messages.slice(-limit);
+        
+        // Renderiza cada mensagem
+        messages.forEach(msg => {
+            const messageElement = this.createMessageElement(msg);
+            messageArea.appendChild(messageElement);
+        });
+        
+        // Adiciona botão "Carregar mais" se houver mais mensagens
+        if (conversation.messages.length > limit) {
+            const loadMoreButton = document.createElement('button');
+            loadMoreButton.className = 'load-more-btn';
+            loadMoreButton.textContent = 'Carregar mensagens anteriores';
+            loadMoreButton.onclick = () => this.loadMoreMessages(conversation, limit);
+            
+            const loadMoreContainer = document.createElement('div');
+            loadMoreContainer.className = 'load-more-container';
+            loadMoreContainer.appendChild(loadMoreButton);
+            
+            messageArea.insertBefore(loadMoreContainer, messageArea.firstChild);
+        }
+        
+        // Rola para a última mensagem
+        messageArea.scrollTop = messageArea.scrollHeight;
+    },
+    
+    // Carrega mais mensagens para conversas longas
+    loadMoreMessages: function(conversation, pageSize = 50) {
+        const messageArea = document.getElementById('message-area');
+        if (!messageArea) return;
+        
+        // Número atual de mensagens
+        const currentCount = messageArea.querySelectorAll('.message').length;
+        
+        // Próximo lote de mensagens
+        const startIndex = Math.max(0, conversation.messages.length - currentCount - pageSize);
+        const endIndex = conversation.messages.length - currentCount;
+        const nextMessages = conversation.messages.slice(startIndex, endIndex);
+        
+        // Remove o botão "Carregar mais" existente
+        const loadMoreContainer = messageArea.querySelector('.load-more-container');
+        if (loadMoreContainer) {
+            loadMoreContainer.remove();
+        }
+        
+        // Adiciona as novas mensagens no início
+        nextMessages.forEach(msg => {
+            const messageElement = this.createMessageElement(msg);
+            messageArea.insertBefore(messageElement, messageArea.firstChild);
+        });
+        
+        // Adiciona o botão novamente se ainda houver mais mensagens
+        if (startIndex > 0) {
+            const loadMoreButton = document.createElement('button');
+            loadMoreButton.className = 'load-more-btn';
+            loadMoreButton.textContent = 'Carregar mensagens anteriores';
+            loadMoreButton.onclick = () => this.loadMoreMessages(conversation, pageSize);
+            
+            const newLoadMoreContainer = document.createElement('div');
+            newLoadMoreContainer.className = 'load-more-container';
+            newLoadMoreContainer.appendChild(loadMoreButton);
+            
+            messageArea.insertBefore(newLoadMoreContainer, messageArea.firstChild);
+        }
+    },
+
+    // Marca as mensagens como lidas
+    markMessagesAsRead: function(phone) {
+        fetch(`/mark_read/${phone}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(`Mensagens para ${phone} marcadas como lidas:`, data);
+            
+            // Atualiza contadores locais se o gerenciador de notificações estiver disponível
+            if (this.notificationManager) {
+                this.notificationManager.unreadCounts[phone] = 0;
+                this.notificationManager.updateTotalUnreadCount();
+                this.notificationManager.updateConversationBadge(phone, 0);
+            }
+        })
+        .catch(error => {
+            console.error(`Erro ao marcar mensagens como lidas para ${phone}:`, error);
+        });
+    },
+
+    // Método auxiliar para criar elemento de mensagem
+    createMessageElement: function(msg) {
+        const messageElement = document.createElement('div');
+        messageElement.className = `message ${msg.from}`;
+        
+        // Adiciona ID da mensagem como atributo se existir
+        if (msg.id) {
+            messageElement.dataset.messageId = msg.id;
+        }
+        
+        // Adiciona classe de status se for uma mensagem enviada por nós
+        if ((msg.from === 'vendedor' || msg.from === 'qwen') && msg.status) {
+            messageElement.classList.add(`status-${msg.status}`);
+        }
+        
+        // Conteúdo da mensagem
+        let content = '';
+        switch(msg.type) {
+            case 'text':
+                content = `<div class="message-text">${msg.content}</div>`;
+                break;
+            case 'image':
+                const imageUrl = this.getMediaUrl(msg.media_url);
+                content = `
+                    <div class="message-media">
+                        <img src="${imageUrl}" alt="Imagem" onclick="App.zoomImage('${imageUrl}')">
+                    </div>
+                    ${msg.content ? `<div class="message-caption">${msg.content}</div>` : ''}
+                `;
+                break;
+            case 'audio':
+                const audioUrl = this.getMediaUrl(msg.media_url);
+                content = `
+                    <div class="message-media">
+                        <audio controls src="${audioUrl}"></audio>
+                    </div>
+                    ${msg.content ? `<div class="message-caption">${msg.content}</div>` : ''}
+                `;
+                break;
+            case 'video':
+                const videoUrl = this.getMediaUrl(msg.media_url);
+                content = `
+                    <div class="message-media">
+                        <video controls src="${videoUrl}"></video>
+                    </div>
+                    ${msg.content ? `<div class="message-caption">${msg.content}</div>` : ''}
+                `;
+                break;
+            case 'document':
+                const docUrl = this.getMediaUrl(msg.media_url);
+                const fileName = msg.media_url.split('/').pop();
+                content = `
+                    <div class="message-document">
+                        <a href="${docUrl}" class="document-link" target="_blank">
+                            <i class="fas fa-file"></i> ${fileName}
+                        </a>
+                    </div>
+                    ${msg.content ? `<div class="message-caption">${msg.content}</div>` : ''}
+                `;
+                break;
+            case 'location':
+                content = `
+                    <div class="message-location">
+                        <img src="https://maps.googleapis.com/maps/api/staticmap?center=${msg.latitude},${msg.longitude}&zoom=13&size=300x150&markers=color:red%7C${msg.latitude},${msg.longitude}" 
+                          alt="Localização" onclick="App.openLocation(${msg.latitude}, ${msg.longitude})">
+                        <div class="location-caption">
+                            <i class="fas fa-map-marker-alt"></i> Localização
+                        </div>
+                    </div>
+                `;
+                break;
+        }
+        
+        // Prepara o html da mensagem
+        let messageHtml = `
+            <div class="message-options">
+                <button class="options-btn" onclick="App.showMessageOptions(event, '${msg.id || ''}')">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+            </div>
+            ${content}
+            <div class="message-time">${msg.timestamp || ''}`;
+            
+        // Adiciona ícone de status para mensagens enviadas
+        if ((msg.from === 'vendedor' || msg.from === 'qwen') && msg.status) {
+            let statusIcon = '';
+            switch(msg.status) {
+                case 'sending':
+                    statusIcon = '<i class="fas fa-clock"></i>';
+                    break;
+                case 'sent':
+                    statusIcon = '<i class="fas fa-check"></i>';
+                    break;
+                case 'delivered':
+                    statusIcon = '<i class="fas fa-check-double"></i>';
+                    break;
+                case 'failed':
+                    statusIcon = '<i class="fas fa-exclamation-triangle"></i>';
+                    break;
+            }
+            messageHtml += `<div class="message-status">${statusIcon}</div>`;
+        }
+        
+        // Fecha a div de hora
+        messageHtml += `</div>`;
+        
+        messageElement.innerHTML = messageHtml;
+        return messageElement;
+    },
+
+    // Método auxiliar para criar elemento de mensagem da IA
+    createAIMessageElement: function(msg) {
+        const messageElement = document.createElement('div');
+        messageElement.className = `message ${msg.from}`;
+        
+        // Conteúdo da mensagem simplificado
+        let content = msg.type === 'text' 
+            ? `<div class="message-text">${msg.content}</div>` 
+            : `<div class="message-text">[${msg.type.toUpperCase()}] ${msg.content || ''}</div>`;
+
+        messageElement.innerHTML = `
+            ${content}
+            <div class="message-time">${msg.timestamp || ''}</div>
+        `;
+
+        return messageElement;
+    },
+    
+    // Atualiza a área de mensagens da IA
+    updateAIMessages: function(conversation) {
+        const aiMessageArea = document.getElementById('ai-message-area');
+        if (!aiMessageArea) return;
+        
+        // Filtra mensagens relevantes para a IA
+        const aiInteractions = conversation.messages.filter(msg => 
+            msg.from === 'cliente' || msg.from === 'qwen' || msg.from === 'deepseek'
+        );
+        
+        // Limpa a área
+        aiMessageArea.innerHTML = '';
+        
+        // Verifica se há mensagens
+        if (!aiInteractions || aiInteractions.length === 0) {
+            aiMessageArea.innerHTML = '<div class="empty-state">Nenhuma interação com a IA ainda</div>';
+            return;
+        }
+        
+        // Renderiza cada mensagem
+        aiInteractions.forEach(msg => {
+            const messageElement = this.createAIMessageElement(msg);
+            aiMessageArea.appendChild(messageElement);
+        });
+        
+        // Rola para a última mensagem
+        aiMessageArea.scrollTop = aiMessageArea.scrollHeight;
+    },
+    
+    // Método unificado para enviar mensagens
+    sendMessage: function() {
+        // Bloqueia múltiplos envios
+        if (this.isSubmitting) return;
+        this.isSubmitting = true;
+    
+        if (!this.currentPhone) {
+            this.showNotification("Selecione uma conversa primeiro!", true);
+            this.isSubmitting = false;
+            return;
+        }
+        
+        const messageInput = document.getElementById('message-input');
+        const message = messageInput.value.trim();
+        
+        if (!message && !this.mediaInfo) {
+            this.showNotification("Digite uma mensagem ou selecione uma mídia!", true);
+            this.isSubmitting = false;
+            return;
+        }
+        
+        const data = {
+            to_number: this.currentPhone,
+            message: message
+        };
+        
+        if (this.mediaInfo) {
+            data.media_path = this.mediaInfo.path;
+            data.media_type = this.mediaInfo.type;
+        }
+        
+        // Desabilita o botão durante o envio
+        const sendButton = document.getElementById('send-button');
+        sendButton.disabled = true;
+        
+        // Feedback visual imediato
+        if (this.notificationManager && this.notificationManager.addTemporaryMessage) {
+            this.notificationManager.addTemporaryMessage(message, this.mediaInfo);
+        }
+        
+        // Limpa o campo de mensagem para interface responsiva
+        messageInput.value = '';
+        
+        // Envia a requisição
+        fetch('/send_message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Erro ao enviar mensagem");
+            }
+            return response.json();
+        })
+        .then(result => {
+            // Limpa a mídia após envio bem-sucedido
+            this.mediaInfo = null;
+            
+            // Remove mensagens temporárias (caso ainda existam)
+            document.querySelectorAll('.temp-message').forEach(el => el.remove());
+            
+            console.log("Mensagem enviada com sucesso");
+        })
+        .catch(error => {
+            console.error("Erro:", error);
+            this.showNotification("Não foi possível enviar a mensagem", true);
+            
+            // Remove mensagens temporárias em caso de erro
+            document.querySelectorAll('.temp-message').forEach(el => el.remove());
+            
+            // Restaura a mensagem não enviada no campo
+            messageInput.value = message;
+        })
+        .finally(() => {
+            this.isSubmitting = false;
+            sendButton.disabled = false;
+        });
+    },
+
+    // Função para atualizar o estado da aplicação e interface
+    updateAppStatus: function(status, message = '') {
+        const statusIndicator = document.getElementById('app-status-indicator') || 
+            (() => {
+                const indicator = document.createElement('div');
+                indicator.id = 'app-status-indicator';
+                indicator.className = 'status-indicator';
+                document.body.appendChild(indicator);
+                return indicator;
+            })();
+        
+        statusIndicator.className = 'status-indicator ' + status;
+        statusIndicator.innerHTML = message;
+        
+        // Esconde após alguns segundos para mensagens temporárias
+        if (status !== 'offline' && status !== 'connecting') {
+            setTimeout(() => {
+                statusIndicator.className = 'status-indicator hidden';
+            }, 3000);
+        }
+    },
+
+    // Abre diálogo de confirmação para deletar conversa
+    confirmDeleteConversation: function(phone) {
+        if (confirm("Tem certeza que deseja apagar esta conversa?")) {
+            fetch(`/delete_conversation/${phone}`, {
+                method: 'POST'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        // Implementação temporária (caso a rota backend não exista ainda)
+                        const convoItem = document.querySelector(`.conversation-item[data-phone="${phone}"]`);
+                        if (convoItem) convoItem.remove();
+                        
+                        if (phone === this.currentPhone) {
+                            this.currentPhone = null;
+                            this.currentConversation = null;
+                            document.getElementById('message-area').innerHTML = 
+                                '<div class="empty-state">Selecione uma conversa para ver as mensagens</div>';
+                            document.getElementById('ai-message-area').innerHTML = 
+                                '<div class="empty-state">Informações da IA aparecerão aqui quando uma conversa estiver ativa</div>';
+                            document.getElementById('toggle-mode-btn').style.display = 'none';
+                            document.getElementById('current-contact-name').textContent = 'Selecione uma conversa';
+                            document.getElementById('current-contact-avatar').innerHTML = '<div class="avatar-placeholder">?</div>';
+                            
+                            // Esconde o botão de compartilhar
+                            const shareButton = document.getElementById('share-conversation-btn');
+                            if (shareButton) shareButton.style.display = 'none';
+                        }
+                        
+                        this.showNotification("Conversa removida com sucesso!");
+                        return new Promise(resolve => resolve({}));
+                    }
+                    throw new Error("Erro ao apagar conversa: " + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.status || data.status === 'success') {
+                    // Remove o elemento da lista
+                    const convoItem = document.querySelector(`.conversation-item[data-phone="${phone}"]`);
+                    if (convoItem) convoItem.remove();
+                    
+                    // Se era a conversa atual, limpa a área de mensagens
+                    if (phone === this.currentPhone) {
+                        this.currentPhone = null;
+                        this.currentConversation = null;
+                        document.getElementById('message-area').innerHTML = 
+                            '<div class="empty-state">Selecione uma conversa para ver as mensagens</div>';
+                        document.getElementById('ai-message-area').innerHTML = 
+                            '<div class="empty-state">Informações da IA aparecerão aqui quando uma conversa estiver ativa</div>';
+                        document.getElementById('toggle-mode-btn').style.display = 'none';
+                        document.getElementById('current-contact-name').textContent = 'Selecione uma conversa';
+                        document.getElementById('current-contact-avatar').innerHTML = '<div class="avatar-placeholder">?</div>';
+                        
+                        // Esconde o botão de compartilhar
+                        const shareButton = document.getElementById('share-conversation-btn');
+                        if (shareButton) shareButton.style.display = 'none';
+                    }
+                    
+                    this.showNotification("Conversa apagada com sucesso!");
+                } else {
+                    this.showNotification("Erro ao apagar conversa: " + (data.message || "Erro desconhecido"), true);
+                }
+            })
+            .catch(error => {
+                console.error("Erro ao apagar conversa:", error);
+                this.showNotification("Erro ao apagar conversa: " + error.message, true);
+            });
+        }
+    },
+    
+    // Detecta se o dispositivo é móvel
+    isMobile: function() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    },
+    
+    // Abre uma imagem em tamanho ampliado
+    zoomImage: function(imageUrl) {
+        // Usa a função getMediaUrl para garantir URL correta
+        imageUrl = this.getMediaUrl(imageUrl);
+        
+        // Cria um modal para mostrar a imagem ampliada
+        const modal = document.createElement('div');
+        modal.className = 'modal zoom-modal';
+        modal.innerHTML = `
+            <div class="modal-content image-zoom">
+                <span class="close" onclick="App.closeModal()">&times;</span>
+                <img src="${imageUrl}" alt="Imagem ampliada">
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        modal.style.display = 'block';
+        
+        // Fecha o modal ao clicar fora da imagem
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                App.closeModal();
+            }
+        });
+    },
+    
+    // Fecha qualquer modal aberto
+    closeModal: function() {
+        const mediaUploadModal = document.getElementById('media-upload-modal');
+        if (mediaUploadModal) {
+            mediaUploadModal.style.display = 'none';
+        }
+        
+        // Fecha também outros modais que possam estar abertos
+        const allModals = document.querySelectorAll('.modal');
+        allModals.forEach(modal => {
+            if (modal.id !== 'media-upload-modal') {
+                modal.remove();
+            } else {
+                modal.style.display = 'none';
+            }
+        });
+        
+        // Limpa menus de comandos
+        if(this.hideCommandMenu) {
+            this.hideCommandMenu();
+        }
+    },
+    
+    // Função unificada para atualizar mensagens de conversa
+    updateConversationMessages: function(phoneNumber, newMessage) {
+        // Verifica se é a conversa atual
+        if (this.currentPhone !== phoneNumber) return;
+        
+        const messageArea = document.getElementById('message-area');
+        if (!messageArea) return;
+        
+        // Se não tiver uma mensagem específica, atualiza a conversa inteira
+        if (!newMessage) {
+            // Busca os dados atualizados da conversa
+            fetch(`/conversation/${phoneNumber}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Atualiza o objeto de conversa atual
+                    this.updateAppState(phoneNumber, data);
+                    
+                    // Renderiza as mensagens
+                    this.renderConversationMessages(data);
+                })
+                .catch(error => {
+                    console.error("Erro ao atualizar mensagens:", error);
+                    this.showNotification("Erro ao atualizar mensagens", true);
+                });
+            return;
+        }
+        
+        // Verifica se está no final da área de mensagens (para decidir se deve rolar)
+        const wasAtBottom = messageArea.scrollHeight - messageArea.scrollTop <= messageArea.clientHeight + 50;
+        
+        // Procura mensagem existente pelo ID
+        let existingMessage = null;
+        if (newMessage.id) {
+            existingMessage = messageArea.querySelector(`.message[data-message-id="${newMessage.id}"]`);
+        }
+        
+        if (existingMessage) {
+            // Atualiza mensagem existente (ex: status)
+            if (newMessage.status) {
+                // Remove classes de status anteriores
+                existingMessage.classList.remove('status-sending', 'status-sent', 'status-delivered', 'status-failed');
+                
+                // Adiciona a nova classe de status
+                existingMessage.classList.add(`status-${newMessage.status}`);
+                
+                // Atualiza o ícone de status
+                let statusIcon = existingMessage.querySelector('.message-status');
+                if (statusIcon) {
+                    switch (newMessage.status) {
+                        case 'sending':
+                            statusIcon.innerHTML = '<i class="fas fa-clock"></i>';
+                            break;
+                        case 'sent':
+                            statusIcon.innerHTML = '<i class="fas fa-check"></i>';
+                            break;
+                        case 'delivered':
+                            statusIcon.innerHTML = '<i class="fas fa-check-double"></i>';
+                            break;
+                        case 'failed':
+                            statusIcon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                            break;
+                    }
+                }
+            }
+        } else {
+            // Adiciona nova mensagem
+            const messageElement = this.createMessageElement(newMessage);
+            messageArea.appendChild(messageElement);
+            
+            // Remove qualquer mensagem temporária com o mesmo conteúdo
+            document.querySelectorAll('.temp-message').forEach(el => {
+                if (el.querySelector('.message-text')?.textContent === newMessage.content) {
+                    el.remove();
+                }
+            });
+            
+            // Atualiza o objeto da conversa atual
+            if (this.currentConversation && this.currentConversation.messages) {
+                this.currentConversation.messages.push(newMessage);
+            }
+            
+            // Atualiza área de IA se necessário
+            if (newMessage.from === 'cliente' || newMessage.from === 'qwen' || newMessage.from === 'deepseek') {
+                const aiMessageArea = document.getElementById('ai-message-area');
+                if (aiMessageArea) {
+                    const aiMessageElement = this.createAIMessageElement(newMessage);
+                    aiMessageArea.appendChild(aiMessageElement);
+                    aiMessageArea.scrollTop = aiMessageArea.scrollHeight;
+                }
+            }
+            
+            // Rola para a nova mensagem se estava no final
+            if (wasAtBottom) {
+                messageArea.scrollTop = messageArea.scrollHeight;
+            }
+        }
+    }
+
+}; // Chave de fechamento do objeto App
+
+// Inicializa a aplicação quando o DOM estiver carregado
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', App.init.bind(App));
+} else {
+    App.init();
+}
+// FIM DO ARQUIVO: static\app.js 
+
+// INÍCIO DO ARQUIVO: static\conversation.js (3/6) 
+/**
+ * conversation.js
+ * Módulo para gerenciamento de conversas
+ * Funções para carregar, enviar mensagens e gerenciar o estado das conversas
+ */
+
+// Extende o objeto App com as funções de conversas
+(function(App) {
+    
+    // Método para alternar entre os modos automático e humano
+    App.toggleMode = function() {
+        if (!App.currentPhone) {
+            alert("Selecione uma conversa primeiro!");
+            return;
+        }
+        
+        // Desabilita o botão durante a requisição
+        const toggleButton = document.getElementById('toggle-mode-btn');
+        toggleButton.disabled = true;
+        
+        fetch(`/toggle_mode/${App.currentPhone}`, {
+            method: 'POST'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Erro ao alternar o modo da conversa");
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                // Atualiza o botão com o novo modo
+                const newMode = data.mode;
+                
+                // Atualiza a interface
+                toggleButton.className = newMode === 'human' ? 'human-mode' : 'auto-mode';
+                toggleButton.innerHTML = newMode === 'human' ? 
+                    '<i class="fas fa-user"></i> Modo Humano' : 
+                    '<i class="fas fa-robot"></i> Modo Automático';
+                    
+                // Atualiza também o ícone na lista de conversas
+                const conversationToggle = document.querySelector(`.conversation-item[data-phone="${App.currentPhone}"] .mode-toggle`);
+                if (conversationToggle) {
+                    conversationToggle.className = `mode-toggle ${newMode === 'human' ? 'human-mode' : 'auto-mode'}`;
+                    conversationToggle.innerHTML = `<i class="fas ${newMode === 'human' ? 'fa-user' : 'fa-robot'}"></i>`;
+                }
+                
+                // Atualiza o estado da conversa atual
+                if (App.currentConversation) {
+                    App.currentConversation.mode = newMode;
+                }
+                
+                console.log(`Modo da conversa alterado para: ${newMode}`);
+            } else {
+                alert("Erro ao alternar o modo: " + (data.message || "Erro desconhecido"));
+            }
+        })
+        .catch(error => {
+            console.error("Erro ao alternar o modo:", error);
+            alert("Erro ao alternar o modo: " + error.message);
+        })
+        .finally(() => {
+            toggleButton.disabled = false;
+        });
+    };
+
+    // Método central para atualizar o estado da aplicação
+    App.updateAppState = function(phoneNumber, conversationData) {
+        // Atualiza o estado interno de maneira consistente
+        App.currentPhone = phoneNumber;
+        App.currentConversation = conversationData;
+        
+        // Notifica outros módulos sobre a mudança de estado
+        if (App.persistenceHandler) {
+            App.persistenceHandler.saveCurrentConversation(phoneNumber);
+        }
+        
+        // Atualiza a interface
+        App.updateConversationHeader(conversationData);
+    };
+
+    // Carregar uma conversa - versão otimizada com suporte a notificações
+    App.loadConversation = function(phoneNumber) {
+        console.log(`Carregando conversa: ${phoneNumber}`);
+        
+        if (!phoneNumber) {
+            console.error("Número de telefone inválido");
+            return;
+        }
+        
+        // Limpa qualquer seleção anterior
+        document.querySelectorAll('.conversation-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Marca a conversa como ativa na lista
+        const conversationElement = document.querySelector(`.conversation-item[data-phone="${phoneNumber}"]`);
+        if (conversationElement) {
+            conversationElement.classList.add('active');
+        }
+        
+        // Solicita os dados da conversa ao servidor
+        fetch(`/conversation/${phoneNumber}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erro ao carregar conversa: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Atualiza o estado global
+                App.updateAppState(phoneNumber, data);
+                
+                // Carrega as mensagens
+                App.renderConversationMessages(data);
+                
+                // Inscreve para atualizações em tempo real via notificações
+                App.subscribeToConversationUpdates(phoneNumber);
+                
+                // Marca as mensagens como lidas
+                App.markMessagesAsRead(phoneNumber);
+            })
+            .catch(error => {
+                console.error("Erro ao carregar conversa:", error);
+                App.showNotification(`Erro ao carregar conversa: ${error.message}`, true);
+            });
+    };
+    
+    // Atualiza o cabeçalho da conversa
+    App.updateConversationHeader = function(conversation) {
+        // Atualiza nome do contato
+        const nameElement = document.getElementById('current-contact-name');
+        if (nameElement) {
+            nameElement.textContent = conversation.name || "Cliente";
+        }
+        
+        // Atualiza avatar do contato
+        const avatarElement = document.getElementById('current-contact-avatar');
+        if (avatarElement) {
+            if (conversation.profile_pic) {
+                avatarElement.innerHTML = `<img src="${App.getMediaUrl(conversation.profile_pic)}" alt="${conversation.name || 'Cliente'}">`;
+            } else {
+                const initial = ((conversation.name || 'Cliente')[0] || '?').toUpperCase();
+                avatarElement.innerHTML = `<div class="avatar-placeholder">${initial}</div>`;
+            }
+        }
+        
+        // Atualiza botão de modo
+        const modeButton = document.getElementById('toggle-mode-btn');
+        if (modeButton) {
+            modeButton.style.display = 'inline-block';
+            modeButton.className = conversation.mode === 'human' ? 'human-mode' : 'auto-mode';
+            modeButton.innerHTML = conversation.mode === 'human' ? 
+                '<i class="fas fa-user"></i> Modo Humano' : 
+                '<i class="fas fa-robot"></i> Modo Automático';
+        }
+        
+        // Atualiza botão de compartilhamento
+        const shareButton = document.getElementById('share-conversation-btn');
+        if (shareButton) {
+            shareButton.style.display = 'inline-block';
+        }
+    };
+    
+    // Renderiza as mensagens da conversa
+    App.renderConversationMessages = function(conversation) {
+        // Área de mensagens principal
+        const messageArea = document.getElementById('message-area');
+        if (!messageArea) return;
+        
+        // Limpa a área de mensagens
+        messageArea.innerHTML = '';
+        
+        // Verifica se há mensagens
+        if (!conversation.messages || conversation.messages.length === 0) {
+            messageArea.innerHTML = '<div class="empty-state">Nenhuma mensagem encontrada</div>';
+            
+            // Limpa também a área de IA
+            const aiMessageArea = document.getElementById('ai-message-area');
+            if (aiMessageArea) {
+                aiMessageArea.innerHTML = '<div class="empty-state">Nenhuma interação com a IA ainda</div>';
+            }
+            return;
+        }
+        
+        // Se houver muitas mensagens, usar renderização otimizada
+        if (conversation.messages.length > 50) {
+            App.renderOptimizedMessages(conversation, 50);
+        } else {
+            // Renderiza cada mensagem
+            conversation.messages.forEach(msg => {
+                const messageElement = App.createMessageElement(msg);
+                messageArea.appendChild(messageElement);
+            });
+            
+            // Rola para a última mensagem
+            messageArea.scrollTop = messageArea.scrollHeight;
+        }
+        
+        // Atualiza área de mensagens da IA
+        App.updateAIMessages(conversation);
+    };
+    
+    // Renderização otimizada para conversas longas
+    App.renderOptimizedMessages = function(conversation, limit = 50) {
+        const messageArea = document.getElementById('message-area');
+        if (!messageArea) return;
+        
+        // Limpa a área de mensagens
+        messageArea.innerHTML = '';
+        
+        // Verifica se há mensagens
+        if (!conversation.messages || conversation.messages.length === 0) {
+            messageArea.innerHTML = '<div class="empty-state">Nenhuma mensagem encontrada</div>';
+            return;
+        }
+        
+        // Pega apenas as últimas 'limit' mensagens
+        const messages = conversation.messages.slice(-limit);
+        
+        // Renderiza cada mensagem
+        messages.forEach(msg => {
+            const messageElement = App.createMessageElement(msg);
+            messageArea.appendChild(messageElement);
+        });
+        
+        // Adiciona botão "Carregar mais" se houver mais mensagens
+        if (conversation.messages.length > limit) {
+            const loadMoreButton = document.createElement('button');
+            loadMoreButton.className = 'load-more-btn';
+            loadMoreButton.textContent = 'Carregar mensagens anteriores';
+            loadMoreButton.onclick = () => App.loadMoreMessages(conversation, limit);
+            
+            const loadMoreContainer = document.createElement('div');
+            loadMoreContainer.className = 'load-more-container';
+            loadMoreContainer.appendChild(loadMoreButton);
+            
+            messageArea.insertBefore(loadMoreContainer, messageArea.firstChild);
+        }
+        
+        // Rola para a última mensagem
+        messageArea.scrollTop = messageArea.scrollHeight;
+    };
+    
+    // Carrega mais mensagens para conversas longas
+    App.loadMoreMessages = function(conversation, pageSize = 50) {
+        const messageArea = document.getElementById('message-area');
+        if (!messageArea) return;
+        
+        // Número atual de mensagens
+        const currentCount = messageArea.querySelectorAll('.message').length;
+        
+        // Próximo lote de mensagens
+        const startIndex = Math.max(0, conversation.messages.length - currentCount - pageSize);
+        const endIndex = conversation.messages.length - currentCount;
+        const nextMessages = conversation.messages.slice(startIndex, endIndex);
+        
+        // Remove o botão "Carregar mais" existente
+        const loadMoreContainer = messageArea.querySelector('.load-more-container');
+        if (loadMoreContainer) {
+            loadMoreContainer.remove();
+        }
+        
+        // Adiciona as novas mensagens no início
+        nextMessages.forEach(msg => {
+            const messageElement = App.createMessageElement(msg);
+            messageArea.insertBefore(messageElement, messageArea.firstChild);
+        });
+        
+        // Adiciona o botão novamente se ainda houver mais mensagens
+        if (startIndex > 0) {
+            const loadMoreButton = document.createElement('button');
+            loadMoreButton.className = 'load-more-btn';
+            loadMoreButton.textContent = 'Carregar mensagens anteriores';
+            loadMoreButton.onclick = () => App.loadMoreMessages(conversation, pageSize);
+            
+            const newLoadMoreContainer = document.createElement('div');
+            newLoadMoreContainer.className = 'load-more-container';
+            newLoadMoreContainer.appendChild(loadMoreButton);
+            
+            messageArea.insertBefore(newLoadMoreContainer, messageArea.firstChild);
+        }
+    };
+    
+    // Atualiza a área de mensagens da IA
+    App.updateAIMessages = function(conversation) {
+        const aiMessageArea = document.getElementById('ai-message-area');
+        if (!aiMessageArea) return;
+        
+        // Filtra mensagens relevantes para a IA
+        const aiInteractions = conversation.messages.filter(msg => 
+            msg.from === 'cliente' || msg.from === 'qwen' || msg.from === 'deepseek'
+        );
+        
+        // Limpa a área
+        aiMessageArea.innerHTML = '';
+        
+        // Verifica se há mensagens
+        if (!aiInteractions || aiInteractions.length === 0) {
+            aiMessageArea.innerHTML = '<div class="empty-state">Nenhuma interação com a IA ainda</div>';
+            return;
+        }
+        
+        // Renderiza cada mensagem
+        aiInteractions.forEach(msg => {
+            const messageElement = App.createAIMessageElement(msg);
+            aiMessageArea.appendChild(messageElement);
+        });
+        
+        // Rola para a última mensagem
+        aiMessageArea.scrollTop = aiMessageArea.scrollHeight;
+    };
+    
+    // Inscreve para atualizações em tempo real
+    App.subscribeToConversationUpdates = function(phoneNumber) {
+        // Verifica se o sistema de notificações está disponível
+        if (App.notificationManager) {
+            App.notificationManager.subscribeToPhone(phoneNumber);
+        } else {
+            console.warn("Sistema de notificações não disponível. As mensagens não serão atualizadas em tempo real.");
+        }
+    };
+    
+    // Marca as mensagens como lidas
+    App.markMessagesAsRead = function(phoneNumber) {
+        fetch(`/mark_read/${phoneNumber}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(`Mensagens para ${phoneNumber} marcadas como lidas:`, data);
+            
+            // Atualiza contadores locais se o gerenciador de notificações estiver disponível
+            if (App.notificationManager) {
+                App.notificationManager.unreadCounts[phoneNumber] = 0;
+                App.notificationManager.updateTotalUnreadCount();
+            }
+            
+            // Atualiza badge na interface
+            const conversationItem = document.querySelector(`.conversation-item[data-phone="${phoneNumber}"]`);
+            if (conversationItem) {
+                const badge = conversationItem.querySelector('.unread-badge');
+                if (badge) badge.remove();
+                conversationItem.classList.remove('has-unread');
+            }
+        })
+        .catch(error => {
+            console.error(`Erro ao marcar mensagens como lidas para ${phoneNumber}:`, error);
+        });
+    };
+    
+    // Função unificada para atualizar as mensagens de uma conversa
+    App.updateConversationMessages = function(phoneNumber, newMessage) {
+        // Verifica se é a conversa atual
+        if (App.currentPhone !== phoneNumber) return;
+        
+        const messageArea = document.getElementById('message-area');
+        if (!messageArea) return;
+        
+        // Se não tiver uma mensagem específica, atualiza a conversa inteira
+        if (!newMessage) {
+            // Busca os dados atualizados da conversa
+            fetch(`/conversation/${phoneNumber}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Atualiza o objeto de conversa atual
+                    App.updateAppState(phoneNumber, data);
+                    
+                    // Renderiza as mensagens
+                    App.renderConversationMessages(data);
+                })
+                .catch(error => {
+                    console.error("Erro ao atualizar mensagens:", error);
+                    App.showNotification("Erro ao atualizar mensagens", true);
+                });
+            return;
+        }
+        
+        // Verifica se está no final da área de mensagens (para decidir se deve rolar)
+        const wasAtBottom = messageArea.scrollHeight - messageArea.scrollTop <= messageArea.clientHeight + 50;
+        
+        // Procura mensagem existente pelo ID
+        let existingMessage = null;
+        if (newMessage.id) {
+            existingMessage = messageArea.querySelector(`.message[data-message-id="${newMessage.id}"]`);
+        }
+        
+        if (existingMessage) {
+            // Atualiza mensagem existente (ex: status)
+            if (newMessage.status) {
+                // Remove classes de status anteriores
+                existingMessage.classList.remove('status-sending', 'status-sent', 'status-delivered', 'status-failed');
+                
+                // Adiciona a nova classe de status
+                existingMessage.classList.add(`status-${newMessage.status}`);
+                
+                // Atualiza o ícone de status
+                let statusIcon = existingMessage.querySelector('.message-status');
+                if (statusIcon) {
+                    switch (newMessage.status) {
+                        case 'sending':
+                            statusIcon.innerHTML = '<i class="fas fa-clock"></i>';
+                            break;
+                        case 'sent':
+                            statusIcon.innerHTML = '<i class="fas fa-check"></i>';
+                            break;
+                        case 'delivered':
+                            statusIcon.innerHTML = '<i class="fas fa-check-double"></i>';
+                            break;
+                        case 'failed':
+                            statusIcon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                            break;
+                    }
+                }
+            }
+        } else {
+            // Adiciona nova mensagem
+            const messageElement = App.createMessageElement(newMessage);
+            messageArea.appendChild(messageElement);
+            
+            // Remove qualquer mensagem temporária com o mesmo conteúdo
+            document.querySelectorAll('.temp-message').forEach(el => {
+                if (el.querySelector('.message-text')?.textContent === newMessage.content) {
+                    el.remove();
+                }
+            });
+            
+            // Atualiza o objeto da conversa atual
+            if (App.currentConversation && App.currentConversation.messages) {
+                App.currentConversation.messages.push(newMessage);
+            }
+            
+            // Atualiza área de IA se necessário
+            if (newMessage.from === 'cliente' || newMessage.from === 'qwen' || newMessage.from === 'deepseek') {
+                const aiMessageArea = document.getElementById('ai-message-area');
+                if (aiMessageArea) {
+                    const aiMessageElement = App.createAIMessageElement(newMessage);
+                    aiMessageArea.appendChild(aiMessageElement);
+                    aiMessageArea.scrollTop = aiMessageArea.scrollHeight;
+                }
+            }
+            
+            // Rola para a nova mensagem se estava no final
+            if (wasAtBottom) {
+                messageArea.scrollTop = messageArea.scrollHeight;
+            }
+        }
+    };
+    
+    // Função para mostrar notificações na interface
+    App.showNotification = function(message, isError = false) {
+        const notification = document.createElement('div');
+        notification.className = 'notification' + (isError ? ' error' : '');
+        notification.innerHTML = `<i class="fas fa-${isError ? 'exclamation-circle' : 'check-circle'}"></i> ${message}`;
+        document.body.appendChild(notification);
+        
+        // Remove a notificação após alguns segundos
+        setTimeout(() => {
+            notification.classList.add('fade-out');
+            setTimeout(() => notification.remove(), 500);
+        }, 3000);
+    };
+    
+    // Adiciona um feedback visual temporário de mensagem sendo enviada
+    App.addTemporaryMessage = function(message, mediaInfo) {
+        if (!App.currentPhone) return;
+        
+        const messageArea = document.getElementById('message-area');
+        if (!messageArea) return;
+        
+        const tempMsg = document.createElement('div');
+        tempMsg.className = 'message vendedor temp-message status-sending';
+        
+        // Conteúdo da mensagem
+        let content = '';
+        
+        if (mediaInfo) {
+            // Mensagem com mídia
+            switch (mediaInfo.type) {
+                case 'image':
+                    content = `
+                        <div class="message-media">
+                            <img src="${mediaInfo.path}" alt="Imagem">
+                        </div>
+                        ${message ? `<div class="message-caption">${message}</div>` : ''}
+                    `;
+                    break;
+                case 'audio':
+                    content = `
+                        <div class="message-media">
+                            <audio controls src="${mediaInfo.path}"></audio>
+                        </div>
+                        ${message ? `<div class="message-caption">${message}</div>` : ''}
+                    `;
+                    break;
+                case 'video':
+                    content = `
+                        <div class="message-media">
+                            <video controls src="${mediaInfo.path}"></video>
+                        </div>
+                        ${message ? `<div class="message-caption">${message}</div>` : ''}
+                    `;
+                    break;
+                case 'document':
+                    const fileName = mediaInfo.path.split('/').pop();
+                    content = `
+                        <div class="message-document">
+                            <a href="${mediaInfo.path}" class="document-link" target="_blank">
+                                <i class="fas fa-file"></i> ${fileName}
+                            </a>
+                        </div>
+                        ${message ? `<div class="message-caption">${message}</div>` : ''}
+                    `;
+                    break;
+            }
+        } else {
+            // Mensagem de texto simples
+            content = `<div class="message-text">${message}</div>`;
+        }
+        
+        // Adiciona o conteúdo e o indicador de status
+        tempMsg.innerHTML = `
+            ${content}
+            <div class="message-time">
+                Enviando...
+                <div class="message-status"><i class="fas fa-clock"></i></div>
+            </div>
+        `;
+        
+        // Adiciona à área de mensagens
+        messageArea.appendChild(tempMsg);
+        
+        // Rola para o final
+        messageArea.scrollTop = messageArea.scrollHeight;
+    };
+    
+    // Envia uma mensagem para um contato - versão com feedback visual imediato
+    App.sendMessage = function() {
+        // Bloqueia múltiplos envios
+        if (App.isSubmitting) return;
+        App.isSubmitting = true;
+    
+        if (!App.currentPhone) {
+            App.showNotification("Selecione uma conversa primeiro!", true);
+            App.isSubmitting = false;
+            return;
+        }
+        
+        const messageInput = document.getElementById('message-input');
+        const message = messageInput.value.trim();
+        
+        if (!message && !App.mediaInfo) {
+            App.showNotification("Digite uma mensagem ou selecione uma mídia!", true);
+            App.isSubmitting = false;
+            return;
+        }
+        
+        const data = {
+            to_number: App.currentPhone,
+            message: message
+        };
+        
+        if (App.mediaInfo) {
+            data.media_path = App.mediaInfo.path;
+            data.media_type = App.mediaInfo.type;
+        }
+        
+        const sendButton = document.getElementById('send-button');
+        sendButton.disabled = true;
+        
+        // Feedback visual imediato
+        App.addTemporaryMessage(message, App.mediaInfo);
+        messageInput.value = '';
+        
+        fetch('/send_message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Erro ao enviar mensagem");
+            }
+            return response.json();
+        })
+        .then(result => {
+            // Limpa a mídia após envio
+            App.mediaInfo = null;
+            
+            console.log("Mensagem enviada com sucesso");
+            
+            // O sistema de notificações cuidará da atualização da interface
+        })
+        .catch(error => {
+            console.error("Erro:", error);
+            App.showNotification("Não foi possível enviar a mensagem", true);
+            
+            // Remove mensagens temporárias em caso de erro
+            document.querySelectorAll('.temp-message').forEach(el => el.remove());
+            
+            // Restaura a mensagem não enviada
+            messageInput.value = message;
+        })
+        .finally(() => {
+            App.isSubmitting = false;
+            sendButton.disabled = false;
+        });
+    };
+    
+    // Envia uma localização para um contato
+    App.sendLocation = function(lat, lng) {
+        if (!App.currentPhone) return;
+        
+        // Desabilita o botão durante o envio
+        const sendButton = document.getElementById('send-button');
+        sendButton.disabled = true;
+        
+        // Adiciona mensagem temporária na interface para feedback imediato
+        const messageArea = document.getElementById('message-area');
+        const tempMsg = document.createElement('div');
+        tempMsg.className = 'message vendedor temp-message status-sending';
+        tempMsg.innerHTML = `
+            <div class="message-location">
+                <img src="https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=13&size=300x150&markers=color:red%7C${lat},${lng}" 
+                    alt="Localização" onclick="App.openLocation(${lat}, ${lng})">
+                <div class="location-caption">
+                    <i class="fas fa-map-marker-alt"></i> Localização Compartilhada
+                </div>
+            </div>
+            <div class="message-time">
+                Enviando...
+                <div class="message-status"><i class="fas fa-clock"></i></div>
+            </div>
+        `;
+        messageArea.appendChild(tempMsg);
+        messageArea.scrollTop = messageArea.scrollHeight;
+        
+        // Envia a requisição para o backend
+        fetch('/send_location', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                to_number: App.currentPhone,
+                latitude: lat,
+                longitude: lng
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Erro ao enviar localização: " + response.statusText);
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.status === 'success') {
+                console.log("Localização enviada com sucesso");
+                // O sistema de notificações cuidará da atualização da interface
+            } else {
+                // Mostra erro e remove a mensagem temporária
+                tempMsg.remove();
+                App.showNotification("Erro ao enviar localização: " + (result.message || "Erro desconhecido"), true);
+            }
+        })
+        .catch(error => {
+            // Mostra erro e remove a mensagem temporária
+            tempMsg.remove();
+            console.error("Erro ao enviar localização:", error);
+            App.showNotification("Erro ao enviar localização: " + error.message, true);
+        })
+        .finally(() => {
+            sendButton.disabled = false;
+            // Limpa a localização armazenada
+            App.currentLocation = null;
+        });
+    };
+    
+    // Abre uma localização no Google Maps
+    App.openLocation = function(lat, lng) {
+        // Abre a localização no Google Maps em uma nova aba
+        window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+    };
+    
+    // Exibe detalhes do perfil
+    App.showProfileDetails = function() {
+        if (!App.currentPhone || !App.currentConversation) return;
+        
+        const profile = App.currentConversation;
+        const profilePic = profile.profile_pic || '';
+        const name = profile.name || 'Cliente';
+        const about = profile.about || 'Disponível'; // Campo a ser adicionado no backend
+        
+        // Cria um modal de perfil
+        const modal = document.createElement('div');
+        modal.className = 'modal profile-modal';
+        modal.style.display = 'block';
+        
+        modal.innerHTML = `
+            <div class="modal-content profile-content">
+                <span class="close" onclick="App.closeModal()">&times;</span>
+                <div class="profile-header">
+                    <div class="profile-image">
+                        ${profilePic ? 
+                        `<img src="${App.getMediaUrl(profilePic)}" alt="${name}" onclick="App.zoomImage('${profilePic}')">` : 
+                        `<div class="avatar-placeholder large">${name[0].toUpperCase()}</div>`}
+                    </div>
+                    <h2>${name}</h2>
+                    <p class="profile-about">${about}</p>
+                </div>
+                <div class="profile-info">
+                    <div class="info-item">
+                        <i class="fas fa-phone"></i>
+                        <span>${App.currentPhone}</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-bell"></i>
+                        <span>Notificações: Ativadas</span>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="notification-toggle" checked>
+                            <label for="notification-toggle"></label>
+                        </div>
+                    </div>
+                    <div class="danger-zone">
+                        <button class="danger-btn" onclick="App.confirmDeleteConversation('${App.currentPhone}'); App.closeModal();">
+                            <i class="fas fa-trash"></i> Apagar Conversa
+                        </button>
+                        <button class="block-btn" onclick="alert('Funcionalidade de bloqueio será implementada em breve!')">
+                            <i class="fas fa-ban"></i> Bloquear Contato
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Fecha o modal se clicar fora do conteúdo
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                App.closeModal();
+            }
+        });
+    };
+
+    // Funções para gerenciar opções de mensagens
+    App.showMessageOptions = function(event, messageId) {
+        event.stopPropagation();
+        
+        // Remove qualquer menu de opções existente
+        const existingMenu = document.getElementById('message-options-menu');
+        if (existingMenu) existingMenu.remove();
+        
+        // Cria o menu de opções
+        const optionsMenu = document.createElement('div');
+        optionsMenu.id = 'message-options-menu';
+        optionsMenu.className = 'options-menu';
+        optionsMenu.innerHTML = `
+            <div class="option" onclick="App.replyToMessage('${messageId}')">
+                <i class="fas fa-reply"></i> Responder
+            </div>
+            <div class="option" onclick="App.forwardMessage('${messageId}')">
+                <i class="fas fa-share"></i> Encaminhar
+            </div>
+            <div class="option" onclick="App.copyMessageText('${messageId}')">
+                <i class="fas fa-copy"></i> Copiar
+            </div>
+            <div class="option delete" onclick="App.deleteMessage('${messageId}')">
+            <i class="fas fa-trash"></i> Apagar
+            </div>
+        `;
+        
+        // Posiciona o menu próximo ao botão de opções
+        const button = event.currentTarget;
+        const rect = button.getBoundingClientRect();
+        
+        optionsMenu.style.top = `${rect.bottom + window.scrollY}px`;
+        optionsMenu.style.left = `${rect.left + window.scrollX - 120}px`;
+        
+        document.body.appendChild(optionsMenu);
+        
+        // Fecha o menu se clicar fora dele
+        document.addEventListener('click', function closeMenu(e) {
+            if (!optionsMenu.contains(e.target) && e.target !== button) {
+                optionsMenu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        });
+    };
+    
+    App.replyToMessage = function(messageId) {
+        // Implementação futura para responder a mensagens específicas
+        App.showNotification("Função de responder será implementada em breve!");
+        document.getElementById('message-options-menu')?.remove();
+    };
+    
+    App.forwardMessage = function(messageId) {
+        // Implementação futura para encaminhar mensagens
+        App.showNotification("Função de encaminhar será implementada em breve!");
+        document.getElementById('message-options-menu')?.remove();
+    };
+    
+    App.copyMessageText = function(messageId) {
+        // Copia o texto da mensagem para a área de transferência
+        const message = document.querySelector(`.message[data-message-id="${messageId}"]`);
+        const textElement = message?.querySelector('.message-text');
+        
+        if (textElement) {
+            const text = textElement.textContent;
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    // Feedback visual
+                    App.showNotification("Texto copiado!");
+                })
+                .catch(err => {
+                    console.error('Erro ao copiar texto: ', err);
+                    App.showNotification('Não foi possível copiar o texto: ' + err, true);
+                });
+        }
+        
+        document.getElementById('message-options-menu')?.remove();
+    };
+    
+    App.deleteMessage = function(messageId) {
+        if (confirm("Tem certeza que deseja apagar esta mensagem?")) {
+            // Implementação temporária - remove visualmente o elemento até que o backend seja implementado
+            const message = document.querySelector(`.message[data-message-id="${messageId}"]`);
+            if (message) {
+                message.classList.add('deleted');
+                setTimeout(() => {
+                    message.innerHTML = '<div class="deleted-message"><i class="fas fa-ban"></i> Mensagem apagada</div>';
+                }, 300);
+            }
+            
+            // Implementação futura para deletar do backend
+            // fetch(`/delete_message/${messageId}`, {
+            //     method: 'POST'
+            // }).then(/* ... */);
+        }
+        
+        document.getElementById('message-options-menu')?.remove();
+    };
+    
+    // Função para selecionar uma mensagem
+    App.selectMessage = function(element) {
+        // Remove seleção anterior
+        document.querySelectorAll('.message.selected').forEach(msg => {
+            msg.classList.remove('selected');
+        });
+        
+        // Adiciona seleção à mensagem clicada
+        element.classList.add('selected');
+    };
+    
+    // Função para adicionar indicador de status da aplicação
+    App.updateAppStatus = function(status, message = '') {
+        const statusIndicator = document.getElementById('app-status-indicator') || 
+            (() => {
+                const indicator = document.createElement('div');
+                indicator.id = 'app-status-indicator';
+                indicator.className = 'status-indicator';
+                document.body.appendChild(indicator);
+                return indicator;
+            })();
+        
+        statusIndicator.className = 'status-indicator ' + status;
+        statusIndicator.innerHTML = message;
+        
+        // Esconde após alguns segundos para mensagens temporárias
+        if (status !== 'offline' && status !== 'connecting') {
+            setTimeout(() => {
+                statusIndicator.className = 'status-indicator hidden';
+            }, 3000);
+        }
+    };
+    
+})(window.App || (window.App = {}));
+// FIM DO ARQUIVO: static\conversation.js 
+
+// INÍCIO DO ARQUIVO: static\notification_manager.js (4/6) 
+/**
+ * notification_manager.js
+ * 
+ * Módulo responsável pelo gerenciamento de notificações e estados de leitura
+ * Integra-se com o sistema SSE para atualizações em tempo real
+ */
+
+(function(App) {
+    // Classe principal para gerenciamento de notificações
+    class NotificationManager {
+        constructor() {
+            // Estado interno
+            this.unreadCounts = {};           // Contador de mensagens não lidas por conversa
+            this.totalUnreadCount = 0;        // Contador total de mensagens não lidas
+            this.originalTitle = document.title; // Título original da página
+            this.notificationsEnabled = false;   // Estado de permissão para notificações
+            this.pageVisible = true;            // Estado de visibilidade da página
+            this.titleInterval = null;          // Intervalo para alternar o título
+            this.connected = false;             // Estado da conexão SSE
+            this.reconnecting = false;          // Flag para controlar reconexões
+            this.eventQueue = [];               // Fila de eventos pendentes
+            
+            // Inicialização
+            this.init();
+        }
+        
+        // Inicializa o gerenciador de notificações
+        init() {
+            console.log("Inicializando gerenciador de notificações...");
+            
+            // Verificar suporte a notificações
+            this.checkNotificationSupport();
+            
+            // Monitorar visibilidade da página
+            this.setupVisibilityTracking();
+            
+            // Estender métodos do App
+            this.extendAppMethods();
+            
+            // Conectar ao serviço SSE
+            this.connectToSSE();
+            
+            // Carregar contadores de mensagens não lidas
+            this.loadUnreadCounts();
+        }
+        
+        // Verifica se o navegador suporta notificações e solicita permissão
+        checkNotificationSupport() {
+            if (!("Notification" in window)) {
+                console.log("Este navegador não suporta notificações desktop");
+                return;
+            }
+            
+            // Se já temos permissão
+            if (Notification.permission === "granted") {
+                this.notificationsEnabled = true;
+                console.log("Notificações já estão habilitadas");
+            } 
+            // Se ainda não pedimos permissão
+            else if (Notification.permission !== "denied") {
+                Notification.requestPermission().then(permission => {
+                    this.notificationsEnabled = (permission === "granted");
+                    console.log("Permissão de notificações:", permission);
+                });
+            }
+        }
+        
+        // Configura o monitoramento de visibilidade da página
+        setupVisibilityTracking() {
+            // Eventos de visibilidade
+            document.addEventListener("visibilitychange", () => {
+                this.pageVisible = !document.hidden;
+                
+                // Se a página ficar visível, parar a alternância do título
+                if (this.pageVisible) {
+                    this.stopTitleNotification();
+                    
+                    // Se temos uma conversa ativa, marcar como lida
+                    if (App.currentPhone) {
+                        this.markAsRead(App.currentPhone);
+                    }
+                }
+            });
+            
+            // Eventos de foco da janela
+            window.addEventListener("focus", () => {
+                this.pageVisible = true;
+                this.stopTitleNotification();
+                
+                // Se temos uma conversa ativa, marcar como lida
+                if (App.currentPhone) {
+                    this.markAsRead(App.currentPhone);
+                }
+            });
+            
+            window.addEventListener("blur", () => {
+                this.pageVisible = false;
+            });
+            
+            console.log("Monitoramento de visibilidade configurado");
+        }
+        
+        // Método para conectar ao serviço SSE
+        connectToSSE() {
+            try {
+                // Recupera o ID de cliente do localStorage ou cria um novo
+                let clientId = localStorage.getItem('sse_client_id');
+                if (!clientId) {
+                    clientId = this.generateUUID();
+                    localStorage.setItem('sse_client_id', clientId);
+                }
+                
+                console.log("Conectando ao servidor SSE com ID:", clientId);
+                
+                // Inicia a conexão SSE
+                const eventSource = new EventSource(`/events?client_id=${clientId}`);
+                
+                // Configura handlers para eventos
+                eventSource.addEventListener("connected", (event) => {
+                    const data = JSON.parse(event.data);
+                    console.log("Conectado ao servidor SSE com ID:", data.client_id);
+                    this.connected = true;
+                    this.reconnecting = false;
+                    
+                    // Atualiza o status da aplicação
+                    if (App.updateAppStatus) {
+                        App.updateAppStatus('online', 'Conectado ao servidor');
+                    }
+                    
+                    // Se temos uma conversa ativa, inscrever nela
+                    if (App.currentPhone) {
+                        this.subscribeToPhone(App.currentPhone);
+                    }
+                    
+                    // Dispara evento de conexão estabelecida
+                    this.dispatchEvent('sse-connected');
+                });
+                
+                // Evento de nova mensagem
+                eventSource.addEventListener("new_message", (event) => {
+                    const data = JSON.parse(event.data);
+                    this.handleNewMessage(data);
+                });
+                
+                // Evento de atualização de status de mensagem
+                eventSource.addEventListener("message_status", (event) => {
+                    const data = JSON.parse(event.data);
+                    this.updateMessageStatus(data);
+                });
+                
+                // Evento de atualização de conversa
+                eventSource.addEventListener("conversation_update", (event) => {
+                    const data = JSON.parse(event.data);
+                    this.handleConversationUpdate(data);
+                });
+                
+                // Evento de heartbeat (manter conexão viva)
+                eventSource.addEventListener("heartbeat", () => {
+                    // Apenas para manter a conexão ativa
+                    console.log("Heartbeat recebido do servidor SSE");
+                });
+                
+                // Tratamento de erros
+                eventSource.onerror = (error) => {
+                    console.error("Erro na conexão SSE:", error);
+                    this.connected = false;
+                    
+                    // Atualiza o status da aplicação
+                    if (App.updateAppStatus) {
+                        App.updateAppStatus('offline', 'Conexão perdida');
+                    }
+                    
+                    // Dispara evento de desconexão
+                    this.dispatchEvent('sse-disconnected');
+                    
+                    // Tentar reconectar após um tempo
+                    if (!this.reconnecting) {
+                        this.reconnecting = true;
+                        setTimeout(() => {
+                            if (!this.connected) {
+                                console.log("Tentando reconectar ao servidor SSE...");
+                                
+                                // Fecha a conexão atual antes de tentar uma nova
+                                eventSource.close();
+                                
+                                // Tenta nova conexão
+                                this.connectToSSE();
+                            }
+                            this.reconnecting = false;
+                        }, 5000);
+                    }
+                };
+                
+                // Armazena a referência para poder fechar depois
+                this.eventSource = eventSource;
+                
+                // Garantir que a conexão seja fechada ao sair da página
+                window.addEventListener('beforeunload', () => {
+                    if (this.eventSource) {
+                        console.log("Fechando conexão SSE");
+                        this.eventSource.close();
+                    }
+                });
+            } catch (error) {
+                console.error("Erro ao conectar ao SSE:", error);
+                
+                // Atualiza o status da aplicação
+                if (App.updateAppStatus) {
+                    App.updateAppStatus('error', 'Erro de conexão');
+                }
+                
+                // Agenda tentativa de reconexão
+                if (!this.reconnecting) {
+                    this.reconnecting = true;
+                    setTimeout(() => {
+                        this.connectToSSE();
+                        this.reconnecting = false;
+                    }, 5000);
+                }
+            }
+        }
+        
+        // Inscreve-se para receber atualizações de um número específico
+        subscribeToPhone(phoneNumber) {
+            if (!this.connected) {
+                console.log("Não é possível inscrever-se: SSE não conectado");
+                // Tenta reconectar se não estiver conectado
+                if (!this.reconnecting) {
+                    this.reconnecting = true;
+                    console.log("Tentando estabelecer conexão SSE...");
+                    this.connectToSSE();
+                    
+                    // Agenda nova tentativa de inscrição após um curto intervalo
+                    setTimeout(() => {
+                        this.reconnecting = false;
+                        this.subscribeToPhone(phoneNumber);
+                    }, 1000);
+                }
+                return;
+            }
+            
+            const clientId = localStorage.getItem('sse_client_id');
+            if (!clientId) {
+                console.log("Não é possível inscrever-se: ID de cliente não encontrado");
+                return;
+            }
+            
+            console.log(`Inscrevendo-se para atualizações do número ${phoneNumber}`);
+            
+            fetch(`/events/subscribe/${phoneNumber}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ client_id: clientId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(`Inscrito para atualizações do número ${phoneNumber}`);
+                
+                // Marca mensagens como lidas quando nos inscrevemos
+                this.markAsRead(phoneNumber);
+            })
+            .catch(error => {
+                console.error(`Erro ao inscrever no número ${phoneNumber}:`, error);
+            });
+        }
+        
+        // Marca mensagens como lidas no servidor
+        markAsRead(phoneNumber) {
+            // Certifica-se que phoneNumber é uma string válida
+            if (!phoneNumber || typeof phoneNumber !== 'string') {
+                console.error(`Tentativa de marcar como lido um número inválido: ${phoneNumber}`);
+                return;
+            }
+            
+            console.log(`Marcando mensagens como lidas para ${phoneNumber}`);
+            
+            fetch(`/mark_read/${phoneNumber}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Atualiza o contador local
+                    this.unreadCounts[phoneNumber] = 0;
+                    this.updateTotalUnreadCount();
+                    
+                    // Atualiza a interface
+                    this.updateConversationBadge(phoneNumber, 0);
+                    console.log(`Mensagens marcadas como lidas para ${phoneNumber}`);
+                }
+            })
+            .catch(error => {
+                console.error(`Erro ao marcar mensagens como lidas para ${phoneNumber}:`, error);
+            });
+        }
+        
+        // Manipula evento de nova mensagem
+        handleNewMessage(data) {
+            const phoneNumber = data.phone_number;
+            const message = data.message;
+            
+            console.log(`Nova mensagem recebida de ${phoneNumber}:`, message);
+            
+            // Verifica se a mensagem é de um cliente (não enviada por nós)
+            if (message.from === 'cliente') {
+                // Incrementa contador de não lidas se não estamos visualizando esta conversa
+                if (App.currentPhone !== phoneNumber || !this.pageVisible) {
+                    this.incrementUnreadCount(phoneNumber);
+                    
+                    // Exibe notificação se a página não estiver visível
+                    if (!this.pageVisible) {
+                        this.showNotification(phoneNumber, message);
+                    }
+                }
+            }
+            
+            // Atualiza a interface se for a conversa atual
+            if (App.currentPhone === phoneNumber) {
+                // Usa a função unificada para atualizar mensagens
+                if (App.updateConversationMessages) {
+                    App.updateConversationMessages(phoneNumber, message);
+                } else {
+                    console.warn("App.updateConversationMessages não está disponível");
+                }
+            } else {
+                // Atualiza a lista de conversas para mostrar a última mensagem
+                this.updateConversationPreview(phoneNumber, message);
+            }
+        }
+        
+        // Manipula atualizações de conversa
+        handleConversationUpdate(data) {
+            const phoneNumber = data.phone_number;
+            const updateType = data.update_type;
+            const updateData = data.data;
+            
+            console.log(`Atualização de conversa ${phoneNumber}, tipo: ${updateType}`, updateData);
+            
+            if (updateType === 'unread_updated') {
+                const unreadCount = updateData.unread_count;
+                
+                // Atualiza o contador local
+                this.unreadCounts[phoneNumber] = unreadCount;
+                this.updateTotalUnreadCount();
+                
+                // Atualiza a interface
+                this.updateConversationBadge(phoneNumber, unreadCount);
+            } else if (updateType === 'mode_updated') {
+                // Atualiza o modo da conversa na interface
+                if (App.currentPhone === phoneNumber && updateData.mode) {
+                    const modeButton = document.getElementById('toggle-mode-btn');
+                    if (modeButton) {
+                        modeButton.className = updateData.mode === 'human' ? 'human-mode' : 'auto-mode';
+                        modeButton.innerHTML = updateData.mode === 'human' ? 
+                            '<i class="fas fa-user"></i> Modo Humano' : 
+                            '<i class="fas fa-robot"></i> Modo Automático';
+                    }
+                }
+            }
+        }
+        
+        // Manipula eventos de sistema
+        handleSystemEvent(data) {
+            const eventType = data.type;
+            const eventData = data.data;
+            
+            console.log(`Evento de sistema recebido: ${eventType}`, eventData);
+            
+            if (eventType === 'conversation_deleted') {
+                const phoneNumber = eventData.phone_number;
+                
+                // Remove conversa da lista se ela for excluída
+                const conversationItem = document.querySelector(`.conversation-item[data-phone="${phoneNumber}"]`);
+                if (conversationItem) {
+                    conversationItem.remove();
+                }
+                
+                // Se é a conversa atual, limpa área de mensagens
+                if (App.currentPhone === phoneNumber) {
+                    App.currentPhone = null;
+                    App.currentConversation = null;
+                    
+                    const messageArea = document.getElementById('message-area');
+                    if (messageArea) {
+                        messageArea.innerHTML = '<div class="empty-state">Selecione uma conversa para ver as mensagens</div>';
+                    }
+                    
+                    const aiMessageArea = document.getElementById('ai-message-area');
+                    if (aiMessageArea) {
+                        aiMessageArea.innerHTML = '<div class="empty-state">Informações da IA aparecerão aqui quando uma conversa estiver ativa</div>';
+                    }
+                    
+                    // Oculta botões específicos da conversa
+                    const toggleModeBtn = document.getElementById('toggle-mode-btn');
+                    if (toggleModeBtn) toggleModeBtn.style.display = 'none';
+                    
+                    // Limpa informações do contato
+                    const contactName = document.getElementById('current-contact-name');
+                    if (contactName) contactName.textContent = 'Selecione uma conversa';
+                    
+                    const contactAvatar = document.getElementById('current-contact-avatar');
+                    if (contactAvatar) contactAvatar.innerHTML = '<div class="avatar-placeholder">?</div>';
+                }
+            }
+        }
+        
+        // Incrementa o contador de mensagens não lidas
+        incrementUnreadCount(phoneNumber) {
+            if (!this.unreadCounts[phoneNumber]) {
+                this.unreadCounts[phoneNumber] = 0;
+            }
+            
+            this.unreadCounts[phoneNumber]++;
+            this.updateTotalUnreadCount();
+            
+            console.log(`Incrementado contador para ${phoneNumber}: ${this.unreadCounts[phoneNumber]}`);
+            
+            // Atualiza a interface
+            this.updateConversationBadge(phoneNumber, this.unreadCounts[phoneNumber]);
+            
+            // Inicia notificação no título se a página não estiver visível
+            if (!this.pageVisible) {
+                this.startTitleNotification();
+            }
+        }
+        
+        // Atualiza o contador total de mensagens não lidas
+        updateTotalUnreadCount() {
+            this.totalUnreadCount = Object.values(this.unreadCounts).reduce((total, count) => total + count, 0);
+            
+            console.log(`Total de mensagens não lidas: ${this.totalUnreadCount}`);
+            
+            // Atualiza o título da página se necessário
+            if (this.totalUnreadCount > 0 && !this.titleInterval) {
+                document.title = `(${this.totalUnreadCount}) ${this.originalTitle}`;
+            } else if (this.totalUnreadCount === 0 && !this.titleInterval) {
+                document.title = this.originalTitle;
+            }
+        }
+        
+        // Inicia a notificação no título (alternando)
+        startTitleNotification() {
+            if (this.titleInterval) return;
+            
+            console.log("Iniciando notificação no título");
+            
+            let showCount = true;
+            this.titleInterval = setInterval(() => {
+                if (showCount) {
+                    document.title = `(${this.totalUnreadCount}) ${this.originalTitle}`;
+                } else {
+                    document.title = this.originalTitle;
+                }
+                showCount = !showCount;
+            }, 1000);
+        }
+        
+        // Para a notificação no título
+        stopTitleNotification() {
+            if (this.titleInterval) {
+                clearInterval(this.titleInterval);
+                this.titleInterval = null;
+                
+                console.log("Notificação no título parada");
+                
+                // Restaura o título com o contador, se houver mensagens não lidas
+                if (this.totalUnreadCount > 0) {
+                    document.title = `(${this.totalUnreadCount}) ${this.originalTitle}`;
+                } else {
+                    document.title = this.originalTitle;
+                }
+            }
+        }
+        
+        // Exibe uma notificação desktop
+        showNotification(phoneNumber, message) {
+            if (!this.notificationsEnabled) {
+                console.log("Notificações não estão habilitadas");
+                return;
+            }
+            
+            // Obtém informações da conversa
+            const conversation = this.getConversationInfo(phoneNumber);
+            const name = conversation ? conversation.name : phoneNumber;
+            
+            console.log(`Exibindo notificação para mensagem de ${name}`);
+            
+            // Se App.showNotification estiver disponível, use-o para notificações internas
+            if (this.pageVisible && App.showNotification) {
+                App.showNotification(`Nova mensagem de ${name}: ${message.type === 'text' ? message.content : `[${message.type.toUpperCase()}]`}`);
+                return;
+            }
+            
+            // Cria o conteúdo da notificação
+            let title = `Nova mensagem de ${name}`;
+            let options = {
+                body: message.type === 'text' ? message.content : `[${message.type.toUpperCase()}]`,
+                icon: conversation && conversation.profile_pic ? App.getMediaUrl(conversation.profile_pic) : '/static/images/default-avatar.png',
+                tag: `whatsapp-${phoneNumber}`, // Agrupa notificações do mesmo contato
+                requireInteraction: false // Não requer interação do usuário para fechar
+            };
+            
+            // Cria e exibe a notificação
+            const notification = new Notification(title, options);
+            
+            // Adiciona evento de clique na notificação
+            notification.onclick = () => {
+                // Foca na janela e carrega a conversa
+                window.focus();
+                App.loadConversation(phoneNumber);
+                notification.close();
+            };
+            
+            // Fecha automaticamente após 5 segundos
+            setTimeout(() => {
+                notification.close();
+            }, 5000);
+        }
+        
+        // Atualiza o badge de não lidas na lista de conversas
+        updateConversationBadge(phoneNumber, count) {
+            const conversationItem = document.querySelector(`.conversation-item[data-phone="${phoneNumber}"]`);
+            if (!conversationItem) {
+                console.log(`Conversa ${phoneNumber} não encontrada na interface`);
+                return;
+            }
+            
+            // Remove badge existente
+            const existingBadge = conversationItem.querySelector('.unread-badge');
+            if (existingBadge) {
+                existingBadge.remove();
+            }
+            
+            // Adiciona novo badge se houver mensagens não lidas
+            if (count > 0) {
+                const badge = document.createElement('div');
+                badge.className = 'unread-badge';
+                badge.textContent = count > 99 ? '99+' : count;
+                
+                // Adiciona o badge na posição correta
+                const conversationInfo = conversationItem.querySelector('.conversation-info');
+                conversationInfo.appendChild(badge);
+                
+                // Adiciona classe para destacar a conversa
+                conversationItem.classList.add('has-unread');
+                
+                console.log(`Badge adicionado para ${phoneNumber}: ${count}`);
+            } else {
+                // Remove classe de destaque
+                conversationItem.classList.remove('has-unread');
+                console.log(`Badge removido para ${phoneNumber}`);
+            }
+        }
+        
+        // Atualiza a prévia da conversa na lista
+        updateConversationPreview(phoneNumber, message) {
+            const conversationItem = document.querySelector(`.conversation-item[data-phone="${phoneNumber}"]`);
+            if (!conversationItem) {
+                console.log(`Conversa ${phoneNumber} não encontrada para atualizar prévia`);
+                return;
+            }
+            
+            // Cria ou atualiza o elemento de prévia
+            let previewElement = conversationItem.querySelector('.message-preview');
+            if (!previewElement) {
+                previewElement = document.createElement('div');
+                previewElement.className = 'message-preview';
+                
+                // Adiciona após o nome/telefone
+                const conversationInfo = conversationItem.querySelector('.conversation-info');
+                conversationInfo.appendChild(previewElement);
+            }
+            
+            // Define o conteúdo da prévia
+            if (message.type === 'text') {
+                previewElement.textContent = message.content.length > 30 ? 
+                    message.content.substring(0, 27) + '...' : 
+                    message.content;
+            } else {
+                previewElement.textContent = `[${message.type.toUpperCase()}]`;
+            }
+            
+            console.log(`Prévia atualizada para ${phoneNumber}`);
+            
+            // Move a conversa para o topo da lista
+            const conversationList = document.getElementById('conversation-list');
+            if (conversationList && conversationList.firstChild) {
+                conversationList.insertBefore(conversationItem, conversationList.firstChild);
+                console.log(`Conversa ${phoneNumber} movida para o topo da lista`);
+            }
+        }
+        
+        // Atualiza os indicadores de status das mensagens
+        updateMessageStatus(data) {
+            const phoneNumber = data.phone_number;
+            const messageId = data.message_id;
+            const status = data.status;
+            
+            console.log(`Atualizando status de mensagem ${messageId} para ${status}`);
+            
+            // Atualiza apenas se for a conversa atual
+            if (App.currentPhone !== phoneNumber) {
+                console.log("Ignorando atualização de status para conversa não ativa");
+                return;
+            }
+            
+            // Encontra o elemento da mensagem
+            const messageElement = document.querySelector(`.message[data-message-id="${messageId}"]`);
+            if (!messageElement) {
+                console.log(`Elemento de mensagem ${messageId} não encontrado`);
+                return;
+            }
+            
+            // Remove classes de status anteriores
+            messageElement.classList.remove('status-sending', 'status-sent', 'status-delivered', 'status-failed');
+            
+            // Adiciona a classe de status atual
+            messageElement.classList.add(`status-${status}`);
+            
+            // Atualiza o ícone de status
+            let statusIcon = messageElement.querySelector('.message-status');
+            if (!statusIcon) {
+                statusIcon = document.createElement('div');
+                statusIcon.className = 'message-status';
+                messageElement.querySelector('.message-time').appendChild(statusIcon);
+            }
+            
+            // Define o ícone apropriado
+            switch (status) {
+                case 'sending':
+                    statusIcon.innerHTML = '<i class="fas fa-clock"></i>';
+                    break;
+                case 'sent':
+                    statusIcon.innerHTML = '<i class="fas fa-check"></i>';
+                    break;
+                case 'delivered':
+                    statusIcon.innerHTML = '<i class="fas fa-check-double"></i>';
+                    break;
+                case 'failed':
+                    statusIcon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                    break;
+            }
+            
+            console.log(`Status de mensagem ${messageId} atualizado para ${status}`);
+        }
+        
+        // Obtém informações de uma conversa
+        getConversationInfo(phoneNumber) {
+            // Primeiro tenta obter da conversa atual
+            if (App.currentPhone === phoneNumber && App.currentConversation) {
+                return App.currentConversation;
+            }
+            
+            // Tenta obter da lista de conversas
+            const conversationItem = document.querySelector(`.conversation-item[data-phone="${phoneNumber}"]`);
+            if (conversationItem) {
+                const name = conversationItem.querySelector('.name').textContent;
+                const profilePic = conversationItem.querySelector('.conversation-avatar img')?.src;
+                
+                return {
+                    name: name,
+                    profile_pic: profilePic,
+                    phone: phoneNumber
+                };
+            }
+            
+            // Retorna informações básicas se não encontrar
+            return {
+                name: phoneNumber,
+                profile_pic: null,
+                phone: phoneNumber
+            };
+        }
+        
+        // Dispara evento personalizado
+        dispatchEvent(eventName, data) {
+            // Cria e dispara um evento personalizado
+            const event = new CustomEvent(eventName, {
+                detail: data || {},
+                bubbles: true,
+                cancelable: true
+            });
+            
+            window.dispatchEvent(event);
+        }
+        
+        // Gera um UUID v4 para identificação de cliente
+        generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        
+        // Carrega os contadores de mensagens não lidas
+        loadUnreadCounts() {
+            console.log("Carregando contadores de mensagens não lidas");
+            
+            // Busca todas as conversas do servidor
+            fetch('/all_conversations')
+                .then(response => response.json())
+                .then(conversations => {
+                    // Inicializa os contadores
+                    this.unreadCounts = {};
+                    
+                    // Processa cada conversa
+                    for (const [phoneNumber, conversation] of Object.entries(conversations)) {
+                        const unreadCount = conversation.unread_count || 0;
+                        this.unreadCounts[phoneNumber] = unreadCount;
+                        
+                        // Atualiza a interface
+                        this.updateConversationBadge(phoneNumber, unreadCount);
+                    }
+                    
+                    // Atualiza o contador total
+                    this.updateTotalUnreadCount();
+                    
+                    console.log("Contadores de mensagens não lidas carregados");
+                })
+                .catch(error => {
+                    console.error("Erro ao carregar contadores de mensagens não lidas:", error);
+                });
+        }
+        
+        // Adiciona uma mensagem temporária à interface
+        addTemporaryMessage(message, mediaInfo) {
+            if (!App.currentPhone) return;
+            
+            console.log("Adicionando mensagem temporária");
+            
+            const messageArea = document.getElementById('message-area');
+            const tempMsg = document.createElement('div');
+            tempMsg.className = 'message vendedor temp-message status-sending';
+            
+            // Conteúdo da mensagem
+            let content = '';
+            
+            if (mediaInfo) {
+                // Mensagem com mídia
+                switch (mediaInfo.type) {
+                    case 'image':
+                        content = `
+                            <div class="message-media">
+                                <img src="${mediaInfo.path}" alt="Imagem">
+                            </div>
+                            ${message ? `<div class="message-caption">${message}</div>` : ''}
+                        `;
+                        break;
+                    case 'audio':
+                        content = `
+                            <div class="message-media">
+                                <audio controls src="${mediaInfo.path}"></audio>
+                            </div>
+                            ${message ? `<div class="message-caption">${message}</div>` : ''}
+                        `;
+                        break;
+                    case 'video':
+                        content = `
+                            <div class="message-media">
+                                <video controls src="${mediaInfo.path}"></video>
+                            </div>
+                            ${message ? `<div class="message-caption">${message}</div>` : ''}
+                        `;
+                        break;
+                    case 'document':
+                        const fileName = mediaInfo.path.split('/').pop();
+                        content = `
+                            <div class="message-document">
+                                <a href="${mediaInfo.path}" class="document-link" target="_blank">
+                                    <i class="fas fa-file"></i> ${fileName}
+                                </a>
+                            </div>
+                            ${message ? `<div class="message-caption">${message}</div>` : ''}
+                        `;
+                        break;
+                }
+            } else {
+                // Mensagem de texto simples
+                content = `<div class="message-text">${message}</div>`;
+            }
+            
+            // Adiciona o conteúdo e o indicador de status
+            tempMsg.innerHTML = `
+                ${content}
+                <div class="message-time">
+                    Enviando...
+                    <div class="message-status"><i class="fas fa-clock"></i></div>
+                </div>
+            `;
+            
+            // Adiciona à área de mensagens
+            messageArea.appendChild(tempMsg);
+            
+            // Rola para o final
+            messageArea.scrollTop = messageArea.scrollHeight;
+            
+            console.log("Mensagem temporária adicionada");
+        }
+        
+        // Método para estender os métodos do App
+        extendAppMethods() {
+            console.log("Estendendo métodos do App");
+            
+            // Verifica se o método App.createMessageElement existe antes de estendê-lo
+            if (App.createMessageElement) {
+                // Salva referência ao método original
+                const originalCreateMessageElement = App.createMessageElement;
+                
+                // Sobrescreve o método com versão estendida
+                App.createMessageElement = function(msg) {
+                    try {
+                        // Chama o método original
+                        const element = originalCreateMessageElement.call(App, msg);
+                        
+                        // Adiciona ID da mensagem como atributo do elemento
+                        if (msg.id) {
+                            element.dataset.messageId = msg.id;
+                        }
+                        
+                        // Adiciona indicador de status para mensagens enviadas por nós
+                        if (msg.from === 'vendedor' || msg.from === 'qwen') {
+                            // Adiciona classe de status
+                            element.classList.add(`status-${msg.status || 'sent'}`);
+                            // Adiciona ícone de status
+                            const timeElement = element.querySelector('.message-time');
+                            if (timeElement) {
+                                const statusIcon = document.createElement('div');
+                                statusIcon.className = 'message-status';
+                                
+                                // Define o ícone apropriado
+                                switch (msg.status) {
+                                    case 'sending':
+                                        statusIcon.innerHTML = '<i class="fas fa-clock"></i>';
+                                        break;
+                                    case 'sent':
+                                        statusIcon.innerHTML = '<i class="fas fa-check"></i>';
+                                        break;
+                                    case 'delivered':
+                                        statusIcon.innerHTML = '<i class="fas fa-check-double"></i>';
+                                        break;
+                                    case 'failed':
+                                        statusIcon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                                        break;
+                                    default:
+                                        statusIcon.innerHTML = '<i class="fas fa-check"></i>';
+                                }
+                                
+                                timeElement.appendChild(statusIcon);
+                            }
+                        }
+                        
+                        return element;
+                    } catch (error) {
+                        console.error("Erro ao estender createMessageElement:", error);
+                        
+                        // Fallback em caso de erro
+                        const messageElement = document.createElement('div');
+                        messageElement.className = `message ${msg.from}`;
+                        
+                        // Conteúdo simplificado da mensagem
+                        let content = msg.type === 'text' 
+                            ? `<div class="message-text">${msg.content}</div>` 
+                            : `<div class="message-text">[${msg.type.toUpperCase()}] ${msg.content || ''}</div>`;
+
+                        messageElement.innerHTML = `
+                            ${content}
+                            <div class="message-time">${msg.timestamp || ''}</div>
+                        `;
+                        
+                        return messageElement;
+                    }
+                };
+            } else {
+                console.warn("App.createMessageElement não encontrado. A extensão do método foi ignorada.");
+            }
+            
+            // Verifica se o método App.loadConversation existe antes de estendê-lo
+            if (App.loadConversation) {
+                // Salva referência ao método original
+                const originalLoadConversation = App.loadConversation;
+                
+                // Sobrescreve o método com versão estendida
+                App.loadConversation = function(phoneNumber) {
+                    console.log(`Carregando conversa ${phoneNumber} com notificações`);
+                    
+                    try {
+                        // Chama o método original
+                        originalLoadConversation.call(App, phoneNumber);
+                        
+                        // Adiciona comportamento de notificação
+                        if (App.notificationManager) {
+                            // Inscreve-se para atualizações deste número
+                            App.notificationManager.subscribeToPhone(phoneNumber);
+                            
+                            // Marca mensagens como lidas
+                            App.notificationManager.markAsRead(phoneNumber);
+                        }
+                    } catch (error) {
+                        console.error("Erro ao carregar conversa com notificações:", error);
+                        // Tenta carregar sem extensões se falhar
+                        try {
+                            // Fallback: carrega a conversa diretamente
+                            fetch('/conversation/' + phoneNumber)
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (App.updateAppState) {
+                                        App.updateAppState(phoneNumber, data);
+                                    } else {
+                                        App.currentPhone = phoneNumber;
+                                        App.currentConversation = data;
+                                    }
+                                })
+                                .catch(err => {
+                                    console.error("Erro no fallback:", err);
+                                });
+                        } catch (fallbackError) {
+                            console.error("Erro fatal ao carregar conversa:", fallbackError);
+                        }
+                    }
+                };
+            } else {
+                console.warn("App.loadConversation não encontrado. A extensão do método foi ignorada.");
+            }
+            
+            // Adiciona método para atualizar mensagens se não existir
+            if (!App.updateConversationMessages) {
+                App.updateConversationMessages = function(phoneNumber, newMessage) {
+                    // Verificação mais robusta
+                    if (App.currentPhone !== phoneNumber) return;
+                    
+                    const messageArea = document.getElementById('message-area');
+                    if (!messageArea) return;
+                    
+                    // Se não tiver uma mensagem específica, atualiza a conversa inteira
+                    if (!newMessage) {
+                        // Busca os dados atualizados da conversa
+                        fetch(`/conversation/${phoneNumber}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                // Atualiza o objeto de conversa atual
+                                if (App.updateAppState) {
+                                    App.updateAppState(phoneNumber, data);
+                                } else {
+                                    App.currentPhone = phoneNumber;
+                                    App.currentConversation = data;
+                                }
+                                
+                                // Renderiza as mensagens
+                                if (App.renderConversationMessages) {
+                                    App.renderConversationMessages(data);
+                                }
+                            })
+                            .catch(error => {
+                                console.error("Erro ao atualizar mensagens:", error);
+                            });
+                        return;
+                    }
+                    
+                    // Verifica se está no final da área de mensagens (para decidir se deve rolar)
+                    const wasAtBottom = messageArea.scrollHeight - messageArea.scrollTop <= messageArea.clientHeight + 50;
+                    
+                    // Procura mensagem existente pelo ID
+                    let existingMessage = null;
+                    if (newMessage.id) {
+                        existingMessage = messageArea.querySelector(`.message[data-message-id="${newMessage.id}"]`);
+                    }
+                    
+                    if (existingMessage) {
+                        // Atualiza mensagem existente (ex: status)
+                        if (newMessage.status) {
+                            // Remove classes de status anteriores
+                            existingMessage.classList.remove('status-sending', 'status-sent', 'status-delivered', 'status-failed');
+                            
+                            // Adiciona a nova classe de status
+                            existingMessage.classList.add(`status-${newMessage.status}`);
+                            
+                            // Atualiza o ícone de status
+                            let statusIcon = existingMessage.querySelector('.message-status');
+                            if (statusIcon) {
+                                switch (newMessage.status) {
+                                    case 'sending':
+                                        statusIcon.innerHTML = '<i class="fas fa-clock"></i>';
+                                        break;
+                                    case 'sent':
+                                        statusIcon.innerHTML = '<i class="fas fa-check"></i>';
+                                        break;
+                                    case 'delivered':
+                                        statusIcon.innerHTML = '<i class="fas fa-check-double"></i>';
+                                        break;
+                                    case 'failed':
+                                        statusIcon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                                        break;
+                                }
+                            }
+                        }
+                    } else {
+                        // Adiciona nova mensagem
+                        let messageElement;
+                        try {
+                            messageElement = App.createMessageElement(newMessage);
+                        } catch (error) {
+                            console.error("Erro ao criar elemento de mensagem:", error);
+                            
+                            // Fallback simples
+                            messageElement = document.createElement('div');
+                            messageElement.className = `message ${newMessage.from}`;
+                            messageElement.innerHTML = `
+                                <div class="message-text">${newMessage.content || ''}</div>
+                                <div class="message-time">${newMessage.timestamp || ''}</div>
+                            `;
+                        }
+                        
+                        messageArea.appendChild(messageElement);
+                        
+                        // Remove qualquer mensagem temporária com o mesmo conteúdo
+                        document.querySelectorAll('.temp-message').forEach(el => {
+                            if (el.querySelector('.message-text')?.textContent === newMessage.content) {
+                                el.remove();
+                            }
+                        });
+                        
+                        // Atualiza o objeto da conversa atual
+                        if (App.currentConversation && App.currentConversation.messages) {
+                            App.currentConversation.messages.push(newMessage);
+                        }
+                        
+                        // Atualiza área de IA se necessário
+                        if (newMessage.from === 'cliente' || newMessage.from === 'qwen' || newMessage.from === 'deepseek') {
+                            const aiMessageArea = document.getElementById('ai-message-area');
+                            if (aiMessageArea) {
+                                let aiMessageElement;
+                                
+                                try {
+                                    aiMessageElement = App.createAIMessageElement(newMessage);
+                                } catch (error) {
+                                    console.error("Erro ao criar elemento de mensagem da IA:", error);
+                                    
+                                    // Fallback simples
+                                    aiMessageElement = document.createElement('div');
+                                    aiMessageElement.className = `message ${newMessage.from}`;
+                                    aiMessageElement.innerHTML = `
+                                        <div class="message-text">${newMessage.content || ''}</div>
+                                        <div class="message-time">${newMessage.timestamp || ''}</div>
+                                    `;
+                                }
+                                
+                                aiMessageArea.appendChild(aiMessageElement);
+                                aiMessageArea.scrollTop = aiMessageArea.scrollHeight;
+                            }
+                        }
+                        
+                        // Rola para a nova mensagem se estava no final
+                        if (wasAtBottom) {
+                            messageArea.scrollTop = messageArea.scrollHeight;
+                        }
+                    }
+                };
+            }
+            
+            console.log("Métodos do App estendidos com sucesso");
+        }
+    }
+    
+    // Adiciona estilos CSS necessários
+    function addStyles() {
+        const styleElement = document.createElement('style');
+        styleElement.textContent = `
+            /* Estilos para badges de mensagens não lidas */
+            .unread-badge {
+                background-color: #25D366;
+                color: white;
+                border-radius: 50%;
+                min-width: 20px;
+                height: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                font-weight: bold;
+                margin-left: 8px;
+                padding: 0 4px;
+            }
+
+            /* Destaque para conversas com mensagens não lidas */
+            .conversation-item.has-unread {
+                font-weight: bold;
+                background-color: rgba(37, 211, 102, 0.1);
+            }
+
+            /* Prévia da última mensagem */
+            .message-preview {
+                font-size: 12px;
+                color: #666;
+                margin-top: 2px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 200px;
+            }
+
+            /* Indicadores de status de mensagem */
+            .message-status {
+                display: inline-block;
+                margin-left: 5px;
+                font-size: 12px;
+            }
+
+            .status-sending .message-status {
+                color: #999;
+            }
+
+            .status-sent .message-status {
+                color: #999;
+            }
+
+            .status-delivered .message-status {
+                color: #25D366;
+            }
+
+            .status-failed .message-status {
+                color: #FF3B30;
+            }
+            
+            /* Mensagem temporária */
+            .temp-message {
+                opacity: 0.7;
+            }
+            
+            /* Estilos para o indicador de status de conexão */
+            .status-indicator {
+                position: fixed;
+                bottom: 10px;
+                left: 10px;
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background-color: #999;
+                z-index: 1000;
+                transition: background-color 0.3s;
+            }
+
+            .status-indicator.online {
+                background-color: #25D366;
+            }
+
+            .status-indicator.offline {
+                background-color: #FF3B30;
+            }
+
+            .status-indicator.connecting {
+                background-color: #FFCC00;
+                animation: pulse 1s infinite;
+            }
+
+            .status-indicator.hidden {
+                opacity: 0;
+            }
+
+            @keyframes pulse {
+                0% { opacity: 0.5; }
+                50% { opacity: 1; }
+                100% { opacity: 0.5; }
+            }
+        `;
+        document.head.appendChild(styleElement);
+        console.log("Estilos CSS adicionados");
+    }
+    
+    // Inicializa o módulo quando o documento estiver pronto
+    function initialize() {
+        console.log("Inicializando módulo notification_manager.js");
+        
+        // Adiciona estilos CSS
+        addStyles();
+        
+        // Instancia e expõe o gerenciador de notificações no objeto App
+        App.notificationManager = new NotificationManager();
+    }
+    
+    // Verifica se o documento já está carregado
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initialize);
+    } else {
+        initialize();
+    }
+    
+})(window.App || (window.App = {}));
+// FIM DO ARQUIVO: static\notification_manager.js 
+
+// INÍCIO DO ARQUIVO: static\persistence_handler.js (5/6) 
+/**
+ * persistence_handler.js
+ * 
+ * Módulo responsável pelo gerenciamento de persistência de estado e configurações
+ * Permite restaurar o estado da aplicação entre sessões e recarregamentos
+ */
+
+(function(App) {
+    // Classe principal para gerenciamento de persistência
+    class PersistenceHandler {
+        constructor() {
+            // Configurações padrão
+            this.defaultSettings = {
+                notifications: true,
+                enterToSend: true,
+                lastConversation: null,
+                unreadCounters: {},
+                lastActive: Date.now(),
+                tabId: this.generateUUID()
+            };
+            
+            // Estado atual
+            this.settings = {};
+            this._eventListeners = [];
+            
+            // Inicialização
+            this.init();
+        }
+        
+        // Inicializa o gerenciador de persistência
+        init() {
+            console.log("Inicializando gerenciador de persistência...");
+            
+            // Carrega configurações salvas ou usa padrões
+            this.loadSettings();
+            
+            // Configura observadores de URL
+            this.setupUrlHandling();
+            
+            // Configura sincronização entre abas
+            this.setupTabSynchronization();
+            
+            // Estende os métodos do App
+            this.extendAppMethods();
+            
+            // Restaura o estado da última sessão
+            this.restoreLastState();
+            
+            // Configura evento de salvamento automático ao fechar
+            window.addEventListener('beforeunload', () => {
+                this.saveScrollPositions();
+            });
+            
+            // Registra atividade periódica desta aba
+            setInterval(() => this.registerTabActivity(), 30000);
+            this.registerTabActivity();
+            
+            console.log("Gerenciador de persistência inicializado");
+        }
+        
+        // Carrega configurações do localStorage
+        loadSettings() {
+            try {
+                const savedSettings = localStorage.getItem('app_settings');
+                if (savedSettings) {
+                    this.settings = JSON.parse(savedSettings);
+                    console.log("Configurações carregadas do armazenamento local");
+                } else {
+                    // Usa configurações padrão se não houver salvas
+                    this.settings = {...this.defaultSettings};
+                    console.log("Usando configurações padrão");
+                }
+                
+                // Garante que todas as propriedades padrão existam
+                for (const key in this.defaultSettings) {
+                    if (this.settings[key] === undefined) {
+                        this.settings[key] = this.defaultSettings[key];
+                    }
+                }
+            } catch (error) {
+                console.error("Erro ao carregar configurações:", error);
+                this.settings = {...this.defaultSettings};
+            }
+        }
+        
+        // Salva as configurações no localStorage
+        saveSettings() {
+            try {
+                localStorage.setItem('app_settings', JSON.stringify(this.settings));
+            } catch (error) {
+                console.error("Erro ao salvar configurações:", error);
+            }
+        }
+        
+        // Salva a conversa atual no localStorage e URL
+        saveCurrentConversation(phoneNumber) {
+            if (!phoneNumber) return;
+            
+            // Atualiza as configurações
+            this.settings.lastConversation = phoneNumber;
+            this.saveSettings();
+            
+            // Atualiza a URL sem recarregar a página
+            const url = new URL(window.location);
+            url.searchParams.set('phone', phoneNumber);
+            window.history.pushState({phone: phoneNumber}, '', url);
+            
+            console.log(`Conversa ${phoneNumber} salva como atual`);
+        }
+        
+        // Restaura o estado completo da última sessão
+        restoreLastState() {
+            // Restaura a última conversa
+            const conversationRestored = this.restoreLastConversation();
+            
+            // Restaura posições de scroll
+            setTimeout(() => {
+                this.restoreScrollPositions();
+            }, 500);
+            
+            console.log("Estado da aplicação restaurado");
+            return conversationRestored;
+        }
+        
+        // Restaura a última conversa ativa
+        restoreLastConversation() {
+            // Primeiro verifica parâmetros de URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const phoneFromUrl = urlParams.get('phone');
+            
+            if (phoneFromUrl) {
+                console.log(`Restaurando conversa ${phoneFromUrl} da URL`);
+                // Verifica se a conversa existe antes de carregar
+                this.loadConversationIfExists(phoneFromUrl);
+                return true;
+            }
+            
+            // Se não houver na URL, tenta do localStorage
+            const lastPhone = this.settings.lastConversation;
+            if (lastPhone) {
+                console.log(`Restaurando última conversa ${lastPhone}`);
+                this.loadConversationIfExists(lastPhone);
+                return true;
+            }
+            
+            console.log("Nenhuma conversa anterior para restaurar");
+            return false;
+        }
+        
+        // Verifica se a conversa existe antes de carregar
+        loadConversationIfExists(phoneNumber) {
+            // Verifica se o elemento da conversa existe no DOM
+            const conversationElement = document.querySelector(`.conversation-item[data-phone="${phoneNumber}"]`);
+            
+            if (conversationElement) {
+                // Usa o método existente para carregar a conversa
+                App.loadConversation(phoneNumber);
+                return true;
+            } else {
+                // Tenta buscar a conversa do servidor
+                fetch(`/conversation/${phoneNumber}`)
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        }
+                        throw new Error("Conversa não encontrada");
+                    })
+                    .then(data => {
+                        // Verifica se a conversa já foi adicionada ao DOM (pode ter sido carregada durante a requisição)
+                        if (!document.querySelector(`.conversation-item[data-phone="${phoneNumber}"]`)) {
+                            // Cria um novo elemento na lista de conversas
+                            this.createConversationElement(phoneNumber, data);
+                        }
+                        
+                        // Carrega a conversa
+                        App.loadConversation(phoneNumber);
+                    })
+                    .catch(error => {
+                        console.warn(`Conversa ${phoneNumber} não pôde ser restaurada:`, error);
+                        // Remove dos dados salvos já que não existe mais
+                        if (this.settings.lastConversation === phoneNumber) {
+                            this.settings.lastConversation = null;
+                            this.saveSettings();
+                        }
+                    });
+                return false;
+            }
+        }
+        
+        // Cria um elemento de conversa na lista
+        createConversationElement(phoneNumber, data) {
+            const conversationList = document.getElementById('conversation-list');
+            if (!conversationList) return;
+            
+            const newConversation = document.createElement('div');
+            newConversation.className = 'conversation-item';
+            newConversation.setAttribute('data-phone', phoneNumber);
+            newConversation.onclick = function() { App.loadConversation(phoneNumber); };
+            
+            const name = data.name || "Novo Contato";
+            const profilePic = data.profile_pic || "";
+            const mode = data.mode || "auto";
+            
+            newConversation.innerHTML = `
+                <div class="conversation-avatar">
+                    ${profilePic ? 
+                        `<img src="${App.getMediaUrl(profilePic)}" alt="${name}">` : 
+                        `<div class="avatar-placeholder">${name[0].toUpperCase()}</div>`}
+                </div>
+                <div class="conversation-info">
+                    <div class="name">${name}</div>
+                    <div class="phone">${phoneNumber}</div>
+                </div>
+                <div class="conversation-actions-hover">
+                    <button class="action-btn delete-btn" onclick="event.stopPropagation(); App.confirmDeleteConversation('${phoneNumber}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="action-btn archive-btn" onclick="event.stopPropagation(); alert('Função de arquivar será implementada em breve!')">
+                        <i class="fas fa-archive"></i>
+                    </button>
+                </div>
+                <div class="conversation-mode">
+                    <div class="mode-toggle ${mode === 'human' ? 'human-mode' : 'auto-mode'}" 
+                            onclick="event.stopPropagation(); App.toggleMode()">
+                        <i class="fas ${mode === 'human' ? 'fa-user' : 'fa-robot'}"></i>
+                    </div>
+                </div>
+            `;
+            
+            // Adiciona à lista de conversas
+            conversationList.prepend(newConversation);
+        }
+        
+        // Salva posições de scroll
+        saveScrollPositions() {
+            const messageArea = document.getElementById('message-area');
+            const conversationList = document.getElementById('conversation-list');
+            
+            if (messageArea) {
+                this.settings.messageAreaScroll = messageArea.scrollTop;
+            }
+            
+            if (conversationList) {
+                this.settings.conversationListScroll = conversationList.scrollTop;
+            }
+            
+            this.saveSettings();
+        }
+        
+        // Restaura posições de scroll
+        restoreScrollPositions() {
+            const messageArea = document.getElementById('message-area');
+            const conversationList = document.getElementById('conversation-list');
+            
+            if (messageArea && this.settings.messageAreaScroll !== undefined) {
+                messageArea.scrollTop = this.settings.messageAreaScroll;
+            }
+            
+            if (conversationList && this.settings.conversationListScroll !== undefined) {
+                conversationList.scrollTop = this.settings.conversationListScroll;
+            }
+        }
+        
+        // Configura o tratamento de URL
+        setupUrlHandling() {
+            // Observa mudanças na URL
+            window.addEventListener('popstate', (event) => {
+                console.log("Navegação detectada:", event.state);
+                
+                // Restaura estado baseado no evento de histórico
+                if (event.state && event.state.phone) {
+                    this.loadConversationIfExists(event.state.phone);
+                } else {
+                    // Se não houver estado, limpa a conversa atual
+                    this.clearCurrentConversation();
+                }
+            });
+            
+            // Inicializa o estado do histórico
+            const currentState = {
+                phone: this.settings.lastConversation
+            };
+            
+            // Substitui o estado atual sem modificar a URL
+            window.history.replaceState(currentState, '', window.location.href);
+        }
+        
+        // Gera URL compartilhável para a conversa atual
+        generateShareableUrl() {
+            if (!App.currentConversation) return null;
+            
+            const url = new URL(window.location.origin);
+            url.pathname = window.location.pathname;
+            url.searchParams.set('phone', App.currentConversation);
+            
+            return url.toString();
+        }
+        
+        // Compartilha a URL da conversa atual
+        shareConversationUrl() {
+            const url = this.generateShareableUrl();
+            if (!url) {
+                alert("Selecione uma conversa para compartilhar");
+                return;
+            }
+            
+            // Usa a API de compartilhamento se disponível
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Conversa WhatsApp',
+                    text: 'Acesse esta conversa:',
+                    url: url
+                })
+                .then(() => console.log('URL compartilhada com sucesso'))
+                .catch((error) => console.error('Erro ao compartilhar:', error));
+            } else {
+                // Fallback: copia para a área de transferência
+                navigator.clipboard.writeText(url)
+                    .then(() => {
+                        alert("URL copiada para a área de transferência");
+                    })
+                    .catch((error) => {
+                        console.error('Erro ao copiar URL:', error);
+                        alert("Não foi possível copiar a URL: " + error);
+                    });
+            }
+        }
+        
+        // Limpa a conversa atual
+        clearCurrentConversation() {
+            App.currentConversation = null;
+            App.currentConversation = null;
+            
+            // Atualiza a interface
+            document.getElementById('message-area').innerHTML = 
+                '<div class="empty-state">Selecione uma conversa para ver as mensagens</div>';
+            document.getElementById('ai-message-area').innerHTML = 
+                '<div class="empty-state">Informações da IA aparecerão aqui quando uma conversa estiver ativa</div>';
+            document.getElementById('current-contact-name').textContent = 'Selecione uma conversa';
+            document.getElementById('current-contact-avatar').innerHTML = '<div class="avatar-placeholder">?</div>';
+            document.getElementById('toggle-mode-btn').style.display = 'none';
+            
+            // Remove seleção na lista de conversas
+            document.querySelectorAll('.conversation-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Atualiza o estado salvo
+            this.settings.lastConversation = null;
+            this.saveSettings();
+            
+            // Atualiza a URL sem recarregar a página
+            const url = new URL(window.location);
+            url.searchParams.delete('phone');
+            window.history.pushState({phone: null}, '', url);
+        }
+        
+        // Configura sincronização entre abas
+        setupTabSynchronization() {
+            // Escuta eventos de storage para detectar mudanças em outras abas
+            window.addEventListener('storage', (event) => {
+                if (event.key === 'app_settings') {
+                    console.log("Configurações alteradas em outra aba");
+                    
+                    try {
+                        // Recarrega as configurações do localStorage
+                        const newSettings = JSON.parse(event.newValue);
+                        
+                        // Atualiza apenas se forem diferentes das atuais
+                        if (JSON.stringify(this.settings) !== JSON.stringify(newSettings)) {
+                            // Preserva o ID desta aba
+                            const currentTabId = this.settings.tabId;
+                            
+                            // Atualiza as configurações
+                            this.settings = newSettings;
+                            
+                            // Restaura o ID desta aba
+                            this.settings.tabId = currentTabId;
+                            
+                            // Atualiza contadores de não lidos
+                            if (this.settings.unreadCounters) {
+                            App.notificationManager.updateUnreadCounters(this.settings.unreadCounters);
+                            }
+                            // Se a conversa atual mudou, atualiza
+                            if (App.currentConversation !== this.settings.lastConversation && this.settings.lastConversation) {
+                                this.loadConversationIfExists(this.settings.lastConversation);
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Erro ao processar alterações de outra aba:", error);
+                    }
+                }
+            });
+        }
+        
+        // Registra que esta aba está ativa
+        registerTabActivity() {
+            // Atualiza timestamp de última atividade
+            this.settings.lastActive = Date.now();
+            this.saveSettings();
+            
+            // Armazena também separadamente para outras abas consultarem
+            localStorage.setItem(`tab_activity_${this.settings.tabId}`, this.settings.lastActive.toString());
+            
+            // Limpa registros de abas antigas (mais de 1 hora)
+            this.cleanupOldTabs();
+        }
+        
+        // Remove registros de abas inativas
+        cleanupOldTabs() {
+            const oneHourAgo = Date.now() - (60 * 60 * 1000);
+            
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('tab_activity_')) {
+                    const lastActive = parseInt(localStorage.getItem(key) || '0');
+                    if (lastActive < oneHourAgo) {
+                        localStorage.removeItem(key);
+                    }
+                }
+            }
+        }
+        
+        // Gera um UUID para identificação da aba
+        generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        
+        // Atualiza uma configuração específica
+        updateSetting(key, value) {
+            if (key in this.settings) {
+                this.settings[key] = value;
+                this.saveSettings();
+                console.log(`Configuração ${key} atualizada para ${value}`);
+                return true;
+            }
+            return false;
+        }
+        
+        // Atualiza contadores de mensagens não lidas
+        updateUnreadCounters(unreadCounts) {
+            this.settings.unreadCounters = unreadCounts;
+            this.saveSettings();
+        }
+        
+        // Limpa todos os dados salvos
+        clearAllData() {
+            if (confirm("Tem certeza que deseja limpar todas as configurações salvas? Isso não afetará suas conversas.")) {
+                localStorage.removeItem('app_settings');
+                localStorage.removeItem('sse_client_id');
+                
+                // Remove também dados de atividade de abas
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('tab_activity_')) {
+                        localStorage.removeItem(key);
+                    }
+                }
+                
+                // Recarrega a página para aplicar as configurações padrão
+                window.location.reload();
+            }
+        }
+        
+        // Método para estender os métodos do App
+        extendAppMethods() {
+            console.log("Estendendo métodos do App com funcionalidades de persistência");
+            
+            // Salva referência ao método original de carregamento de conversa
+            const originalLoadConversation = App.loadConversation;
+            
+            // Sobrescreve o método com versão que salva o estado
+            App.loadConversation = function(phoneNumber) {
+                // Chama o método original
+                originalLoadConversation.call(App, phoneNumber);
+                
+                // Salva o estado da conversa
+                if (App.persistenceHandler) {
+                    App.persistenceHandler.saveCurrentConversation(phoneNumber);
+                }
+            };
+            
+            // Adiciona método para compartilhar conversa
+            App.shareConversation = function() {
+                if (App.persistenceHandler) {
+                    App.persistenceHandler.shareConversationUrl();
+                }
+            };
+            
+            // Adiciona método para salvar configurações
+            App.saveSetting = function(key, value) {
+                if (App.persistenceHandler) {
+                    return App.persistenceHandler.updateSetting(key, value);
+                }
+                return false;
+            };
+            
+            // Adiciona método para obter configurações
+            App.getSetting = function(key) {
+                if (App.persistenceHandler && App.persistenceHandler.settings) {
+                    return App.persistenceHandler.settings[key];
+                }
+                return null;
+            };
+            
+            // Integração com o gerenciador de notificações
+            if (App.notificationManager) {
+                // Salva referência ao método original
+                const originalUpdateTotalUnreadCount = App.notificationManager.updateTotalUnreadCount;
+                
+                // Sobrescreve o método para salvar contadores
+                App.notificationManager.updateTotalUnreadCount = function() {
+                    // Chama o método original
+                    originalUpdateTotalUnreadCount.call(App.notificationManager);
+                    
+                    // Salva os contadores no persistenceHandler
+                    if (App.persistenceHandler) {
+                        App.persistenceHandler.updateUnreadCounters(this.unreadCounts);
+                    }
+                };
+                
+                // Adiciona método para atualizar contadores a partir do persistenceHandler
+                App.notificationManager.updateUnreadCounters = function(counters) {
+                    // Atualiza apenas se houver mudanças
+                    if (JSON.stringify(this.unreadCounts) !== JSON.stringify(counters)) {
+                        this.unreadCounts = {...counters};
+                        this.updateTotalUnreadCount();
+                        
+                        // Atualiza badges na interface
+                        for (const [phone, count] of Object.entries(this.unreadCounts)) {
+                            this.updateConversationBadge(phone, count);
+                        }
+                    }
+                };
+                
+                // Carrega contadores salvos
+                if (App.persistenceHandler.settings.unreadCounters) {
+                    App.notificationManager.updateUnreadCounters(App.persistenceHandler.settings.unreadCounters);
+                }
+            }
+            
+            // Adiciona comando para compartilhar conversa
+            if (App.registerCommand) {
+                App.registerCommand('compartilhar', {
+                    description: 'Compartilhar link para esta conversa',
+                    handler: () => App.shareConversation()
+                });
+            }
+        }
+    }
+    
+    // Adiciona estilos CSS necessários
+    function addStyles() {
+        const styleElement = document.createElement('style');
+        styleElement.textContent = `
+            /* Estilos para compartilhamento */
+            .share-button {
+                background-color: #25D366;
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                margin-left: 10px;
+                transition: background-color 0.3s;
+            }
+            
+            .share-button:hover {
+                background-color: #128C7E;
+            }
+            
+            /* Estilos para notificação de cópia */
+            .copy-notification {
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background-color: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 10px 20px;
+                border-radius: 5px;
+                z-index: 1000;
+                animation: fadeInOut 2s ease-in-out;
+            }
+            
+            @keyframes fadeInOut {
+                0% { opacity: 0; }
+                20% { opacity: 1; }
+                80% { opacity: 1; }
+                100% { opacity: 0; }
+            }
+        `;
+        document.head.appendChild(styleElement);
+    }
+    
+    // Adiciona botão de compartilhamento à interface
+    function addShareButton() {
+        const headerActions = document.querySelector('.conversation-actions');
+        if (!headerActions) return;
+        
+        // Verifica se o botão já existe
+        if (headerActions.querySelector('.share-button')) return;
+        
+        // Cria o botão
+        const shareButton = document.createElement('button');
+        shareButton.className = 'share-button';
+        shareButton.innerHTML = '<i class="fas fa-share-alt"></i>';
+        shareButton.title = 'Compartilhar link para esta conversa';
+        shareButton.onclick = () => App.shareConversation();
+        
+        // Adiciona à interface
+        headerActions.appendChild(shareButton);
+    }
+    
+    // Inicializa o módulo quando o documento estiver pronto
+    function initialize() {
+        console.log("Inicializando módulo persistence_handler.js");
+        
+        // Adiciona estilos CSS
+        addStyles();
+        
+        // Adiciona botão de compartilhamento
+        setTimeout(addShareButton, 500);
+        
+        // Instancia e expõe o gerenciador de persistência no objeto App
+        App.persistenceHandler = new PersistenceHandler();
+        
+        // Observa mudanças na interface para adicionar botão de compartilhamento quando necessário
+        const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList' && 
+                    (mutation.target.classList.contains('header') || 
+                     mutation.target.classList.contains('conversation-actions'))) {
+                    addShareButton();
+                }
+            }
+        });
+        
+        // Observa mudanças no header
+        const header = document.querySelector('.header');
+        if (header) {
+            observer.observe(header, { childList: true, subtree: true });
+        }
+    }
+    
+    // Verifica se o documento já está carregado
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initialize);
+    } else {
+        initialize();
+    }
+    
+})(window.App || (window.App = {}));
+
+
+
+// FIM DO ARQUIVO: static\persistence_handler.js 
+
+<!-- INÍCIO DO ARQUIVO: templates\index.html (6/6) -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp - MP Tintas </title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='realtime-styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+
+    <script src="https://cdn.jsdelivr.net/npm/opus-recorder@8.0.3/dist/recorder.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Coluna da esquerda (Lista de Conversas) -->
+        <div class="left-column">
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Buscar conversas..." oninput="App.filterConversations()">
+            </div>
+            <div class="new-conversation">
+                <input type="text" id="new-number" placeholder="Digite o número do WhatsApp">
+                <button onclick="App.startNewConversation()">Iniciar Conversa</button>
+            </div>
+            <div class="conversation-list" id="conversation-list">
+                {% for phone, conv in conversations.items() %}
+                <div class="conversation-item" data-phone="{{ phone }}" onclick="App.loadConversation('{{ phone }}')">
+                    <div class="conversation-avatar">
+                        {% if conv.profile_pic %}
+                            <img src="{{ conv.profile_pic }}" alt="{{ conv.name }}">
+                        {% else %}
+                            <div class="avatar-placeholder">{{ conv.name[0]|upper }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="conversation-info">
+                        <div class="name">{{ conv.name }}</div>
+                        <div class="phone">{{ phone }}</div>
+                        {% if conv.unread_count and conv.unread_count > 0 %}
+                        <div class="unread-badge">{{ conv.unread_count }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="conversation-actions-hover">
+                        <button class="action-btn delete-btn" onclick="event.stopPropagation(); App.confirmDeleteConversation('{{ phone }}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button class="action-btn archive-btn" onclick="event.stopPropagation(); alert('Função de arquivar será implementada em breve!')">
+                            <i class="fas fa-archive"></i>
+                        </button>
+                    </div>
+                    <div class="conversation-mode">
+                        <div class="mode-toggle {% if conv.mode == 'human' %}human-mode{% else %}auto-mode{% endif %}" 
+                                onclick="event.stopPropagation(); App.toggleMode()">
+                            <i class="fas {% if conv.mode == 'human' %}fa-user{% else %}fa-robot{% endif %}"></i>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Coluna central (Conversa Atual) -->
+        <div class="center-column">
+            <div class="header">
+                <div class="contact-info" onclick="App.showProfileDetails()">
+                    <div class="contact-avatar" id="current-contact-avatar">
+                        <div class="avatar-placeholder">?</div>
+                    </div>
+                    <div class="contact-name" id="current-contact-name">Selecione uma conversa</div>
+                </div>
+                <div class="conversation-actions">
+                    <button id="toggle-mode-btn" onclick="App.toggleMode()" style="display:none;">
+                        <i class="fas fa-robot"></i> Modo Automático
+                    </button>
+                    <button class="share-button" id="share-conversation-btn" onclick="App.shareConversation()" style="display:none;">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="message-area" id="message-area">
+                <div class="empty-state">
+                    Selecione uma conversa para ver as mensagens
+                </div>
+            </div>
+            <div class="input-area">
+                <div class="media-buttons">
+                    <button type="button" class="media-btn" onclick="App.openMediaUpload('image')">
+                        <i class="fas fa-image"></i>
+                    </button>
+                    <button type="button" class="media-btn" onclick="App.openMediaUpload('audio')">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button type="button" class="media-btn" onclick="App.openMediaUpload('video')">
+                        <i class="fas fa-video"></i>
+                    </button>
+                    <button type="button" class="media-btn" onclick="App.openMediaUpload('document')">
+                        <i class="fas fa-file"></i>
+                    </button>
+                    <button type="button" class="media-btn" onclick="App.openLocationSelector()">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </button>
+                </div>
+                <textarea id="message-input" placeholder="Digite uma mensagem ou use / para comandos"></textarea>
+                <button type="button" id="send-button" onclick="App.sendMessage()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Coluna da direita (Visualização da IA) -->
+        <div class="right-column">
+            <div class="header">
+                <div class="ai-title">Visão de I.A.</div>
+                <div class="ai-actions">
+                    <button class="action-btn" id="toggle-ai-panel" onclick="App.toggleAIPanel()">
+                        <i class="fas fa-columns"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="ai-message-area" id="ai-message-area">
+                <div class="empty-state">
+                    Informações da IA aparecerão aqui quando uma conversa estiver ativa
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Upload de Mídia -->
+    <div id="media-upload-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="App.closeModal()">&times;</span>
+            <h3 id="upload-title">Enviar Mídia</h3>
+            <form id="media-upload-form">
+                <input type="file" id="media-file" name="file">
+                <textarea id="media-caption" placeholder="Adicionar legenda (opcional)..."></textarea>
+                <button type="button" id="upload-media-btn" onclick="App.uploadMedia()">Enviar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Localização -->
+    <div id="location-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="App.closeModal()">&times;</span>
+            <h3>Compartilhar Localização</h3>
+            <div id="location-map" class="location-map">
+                <!-- O mapa será carregado aqui -->
+            </div>
+            <div class="location-controls">
+                <button type="button" id="use-my-location" onclick="App.useMyLocation()">
+                    <i class="fas fa-crosshairs"></i> Usar minha localização
+                </button>
+                <button type="button" id="send-location-btn" onclick="App.sendSelectedLocation()" disabled>
+                    Enviar localização
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template para menu de comandos (será usado pelo commands.js) -->
+    <div id="command-menu-template" style="display: none;">
+        <div class="command-menu">
+            <div class="command-header">
+                <h3>Comandos Disponíveis</h3>
+                <span class="close" onclick="App.hideCommandMenu()">&times;</span>
+            </div>
+            <div class="command-list" id="command-list">
+                <!-- Comandos serão adicionados dinamicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Status da conexão SSE -->
+    <div id="connection-status" class="connection-status">
+        <div class="status-indicator offline">
+            <i class="fas fa-wifi"></i>
+        </div>
+    </div>
+
+    <!-- Scripts - Ordem importa! -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script src="{{ url_for('static', filename='conversation.js') }}"></script>
+    <script src="{{ url_for('static', filename='commands.js') }}"></script>
+    <script src="{{ url_for('static', filename='media.js') }}"></script>
+    <script src="{{ url_for('static', filename='ui.js') }}"></script>
+    <script src="{{ url_for('static', filename='notification_manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='persistence_handler.js') }}"></script>
+    <!-- Inicialização do SSE -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Inicializa o SSE Handler
+            window.sseHandler = new App.SSEMessageHandler();
+            window.sseHandler.connect(); // Inicia a conexão SSE
+            
+            // Atualiza o indicador de status da conexão
+            const updateConnectionStatus = (connected) => {
+                const statusIndicator = document.querySelector('.status-indicator');
+                if (statusIndicator) {
+                    if (connected) {
+                        statusIndicator.className = 'status-indicator online';
+                        statusIndicator.title = 'Conectado em tempo real';
+                    } else {
+                        statusIndicator.className = 'status-indicator offline';
+                        statusIndicator.title = 'Sem conexão em tempo real';
+                    }
+                }
+            };
+            
+            // Adiciona listeners para eventos de conexão
+            window.addEventListener('sse-connected', () => {
+                updateConnectionStatus(true);
+            });
+            
+            window.addEventListener('sse-disconnected', () => {
+                updateConnectionStatus(false);
+            });
+            
+            // Verifica o status a cada 10 segundos
+            setInterval(() => {
+                fetch('/events/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        updateConnectionStatus(data.status === 'online');
+                    })
+                    .catch(() => {
+                        updateConnectionStatus(false);
+                    });
+            }, 10000);
+        });
+    </script>
+</body>
+</html>
+<!-- FIM DO ARQUIVO: templates\index.html -->
+
+# FIM DO BACKUP - 2025-04-17 21:25:22

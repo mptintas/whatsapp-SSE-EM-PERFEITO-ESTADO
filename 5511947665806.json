@@ -1,0 +1,114 @@
+{
+    "name": "Eros",
+    "profile_pic": "",
+    "mode": "auto",
+    "messages": [
+        {
+            "type": "text",
+            "content": "Está me ouvindo?",
+            "from": "cliente",
+            "timestamp": "11:43 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! Sim, estou ouvindo. Como gostaria de ser chamado(a)?",
+            "from": "qwen",
+            "timestamp": "11:43 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Preciso pintar 70m. Quanto vou gastar?",
+            "from": "cliente",
+            "timestamp": "11:44 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Desculpe, mas antes de fazer o cálculo, preciso saber como gostaria de ser chamado(a). Além disso, seria importante saber se os 70m² são para cores básicas ou vibrantes, pois os preços são diferentes. Poderia me informar?",
+            "from": "qwen",
+            "timestamp": "11:44 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Adenir",
+            "from": "cliente",
+            "timestamp": "11:44 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sr. Adenir, agora posso ajudá-lo melhor. Para calcular o valor, preciso saber se o senhor deseja uma cor básica (como cinza, bege, branco) ou uma cor vibrante (como azul, verde, vermelho). Qual seria sua preferência?",
+            "from": "qwen",
+            "timestamp": "11:44 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Me manda paleta de cores",
+            "from": "cliente",
+            "timestamp": "11:45 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sr. Adenir, temos disponíveis as seguintes cores:\n\nCores Básicas:\n- Cinza (claro, médio, escuro, chumbo)\n- Creme\n- Areia\n- Gelo\n- Branco neve\n- Marfim\n\nCores Vibrantes:\n- Azul piscina\n- Preto\n- Marrom\n- Amarelo segurança\n- Azul segurança\n- Verde segurança\n- Vermelho segurança\n- Laranja segurança\n\nTambém trabalhamos com o catálogo RAL sob consulta. Qual cor interessa ao senhor?",
+            "from": "qwen",
+            "timestamp": "11:45 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Preciso ver a cor. Tem alguma imagem?",
+            "from": "cliente",
+            "timestamp": "11:46 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sr. Adenir, infelizmente não reproduzimos cores através de fotos ou vídeos devido à variação de luminosidade das telas, que pode distorcer a percepção das cores. Para garantir a escolha correta, o senhor pode:\n\n1. Visitar nossa loja no Belenzinho (Rua Siqueira Bueno, 1326)\n2. Solicitar uma amostra física da cor desejada\n\nAssim o senhor terá certeza da tonalidade exata antes de fazer o investimento. Como podemos ajudá-lo com isso?",
+            "from": "qwen",
+            "timestamp": "11:46 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Ok",
+            "from": "cliente",
+            "timestamp": "11:46 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sr. Adenir, posso ajudá-lo com mais alguma informação? O senhor gostaria de saber o endereço da loja ou os horários de funcionamento?",
+            "from": "qwen",
+            "timestamp": "11:46 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Como eu faço pra aplicar a tinta epóxi?",
+            "from": "cliente",
+            "timestamp": "11:46 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sr. Adenir, para aplicar a tinta epóxi corretamente, siga estes passos:\n\n1. Prepare a superfície:\n- Limpe bem, removendo poeira, óleo, graxa ou qualquer sujeira\n- A superfície deve estar totalmente seca\n- Se necessário, faça um lixamento\n\n2. Misture os componentes:\n- 5 partes de tinta (A) para 1 parte de catalisador (B)\n- Misture bem até ficar homogêneo\n- Aguarde 10-15 minutos após misturar\n\n3. Dilua a tinta:\n- Use 10% a 20% de diluição\n- Misture bem novamente\n\n4. Aplique:\n- Use rolo específico para epóxi\n- Aplique 2 demãos\n- Aguarde 24h entre demãos\n- Após a última demão, espere 24h para tráfego leve\n- A cura total ocorre em 7 dias\n\nTemos um vídeo detalhado de aplicação em nosso site. Gostaria que eu compartilhasse o link?",
+            "from": "qwen",
+            "timestamp": "11:47 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sim",
+            "from": "cliente",
+            "timestamp": "11:47 30/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sr. Adenir, o vídeo completo de aplicação está disponível em nosso canal do YouTube. Acesse tintaepoxi.com/catalogo-de-cores/. Lá o senhor encontrará um passo a passo detalhado de todo o processo.\n\nPosso ajudá-lo com mais alguma informação sobre a aplicação?",
+            "from": "qwen",
+            "timestamp": "11:47 30/03/25"
+        }
+    ],
+    "processed_message_ids": [
+        "wamid.HBgNNTUxMTk0NzY2NTgwNhUCABIYIEVFQjAyQTg4MzNENjM4MzA4Q0MxMUVGQUE1RTAzREQ0AA==",
+        "wamid.HBgNNTUxMTk0NzY2NTgwNhUCABIYIDZFNUNERjVFMUZCNDQ1Q0M2ODI3MjBDREU1QUFFNzIzAA==",
+        "wamid.HBgNNTUxMTk0NzY2NTgwNhUCABIYIDYwMDk0M0I0NDA3RDNCRTNCNTVDMDNGQzQ1RjExNThGAA==",
+        "wamid.HBgNNTUxMTk0NzY2NTgwNhUCABIYIDJEMzkxMDZENDY3OTNGOUVDRjc3MjBDNTk2NkYxOEY1AA==",
+        "wamid.HBgNNTUxMTk0NzY2NTgwNhUCABIYIERFMjMyQzQ5RDhGNzNGRTZCQjI0QzA1MURBNDQ4MDY4AA==",
+        "wamid.HBgNNTUxMTk0NzY2NTgwNhUCABIYIDQxMzlBNkY0RDgwQ0FFQTZGRjY2N0ZCNUVFQzIzQjVEAA==",
+        "wamid.HBgNNTUxMTk0NzY2NTgwNhUCABIYIDFGRDExQUE0NzdFMTMwRTc4NjBCQzBCN0JEQTQ4M0MxAA==",
+        "wamid.HBgNNTUxMTk0NzY2NTgwNhUCABIYIDVDODkwQTJERENCODRFMEE5MjA1MDdCMDgwQTUzNTE0AA=="
+    ],
+    "status": "idle"
+}

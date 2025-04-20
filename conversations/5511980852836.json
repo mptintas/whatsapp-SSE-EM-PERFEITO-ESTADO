@@ -1,0 +1,133 @@
+{
+    "name": "Edgard",
+    "profile_pic": "",
+    "mode": "auto",
+    "messages": [
+        {
+            "type": "text",
+            "content": "Boa tarde",
+            "from": "cliente",
+            "timestamp": "17:52 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Tarde",
+            "from": "cliente",
+            "timestamp": "12:50 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Tarde! Como posso ajudar? Se precisar de algo específico, é só perguntar. 😊",
+            "from": "qwen",
+            "timestamp": "12:51 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Eu preciso pintar uma área de 20m",
+            "from": "cliente",
+            "timestamp": "12:52 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! Para pintar 20 m², você precisará de aproximadamente 0,8 litros de tinta epóxi por demão. Um galão de 3,6 litros é suficiente para duas demãos. Qual cor você deseja? 😊",
+            "from": "qwen",
+            "timestamp": "12:52 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Qual você sugere?",
+            "from": "cliente",
+            "timestamp": "12:52 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! Para uma área de 20 m², sugiro cores como **cinza médio** ou **creme (RAL 1013)**, que são versáteis e fáceis de combinar. 😊 Se precisar de mais ajuda, é só avisar!",
+            "from": "qwen",
+            "timestamp": "12:52 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Quanto fica esse galão na cor cinza?",
+            "from": "cliente",
+            "timestamp": "12:53 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! O galão de 3,6 litros na cor cinza (médio, claro ou escuro) custa R$ 189,90. 😊 Aceitamos PIX com 6% de desconto ou parcelamento em até 5x sem juros. Precisa de mais alguma coisa?",
+            "from": "qwen",
+            "timestamp": "12:53 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Vocês.entregam ou preciso retirar?",
+            "from": "cliente",
+            "timestamp": "12:53 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! Entregamos na Grande São Paulo, com pedidos fechados até 12h para entrega no mesmo dia. 😊 Se preferir retirar, estamos na Rua Siqueira Bueno, 1326 - Belenzinho, SP. Qual opção deseja?",
+            "from": "qwen",
+            "timestamp": "12:53 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Tem frete?",
+            "from": "cliente",
+            "timestamp": "12:54 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! Para a Grande São Paulo, o frete é gratuito em casos específicos. 😊 Se precisar de mais detalhes, é só avisar!",
+            "from": "qwen",
+            "timestamp": "12:54 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Qual o nome da empresa?",
+            "from": "cliente",
+            "timestamp": "12:54 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! A empresa é a **MP Tintas Epóxi**. 😊 Precisa de mais alguma coisa?",
+            "from": "qwen",
+            "timestamp": "12:55 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Quem são os sócios?",
+            "from": "cliente",
+            "timestamp": "12:55 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! Infelizmente, essa informação não consta na nossa base de dados. Posso transferir você para os Especialistas Saulo Mucci ou André Prosperi para mais detalhes. 😊",
+            "from": "qwen",
+            "timestamp": "12:55 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Qual a vantagem da tinta epóxi",
+            "from": "cliente",
+            "timestamp": "12:56 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! A tinta epóxi tem várias vantagens: é resistente a produtos químicos (como gasolina e diesel), fácil de limpar, funciona como primer e acabamento em um só produto, e é ideal para áreas como garagens e oficinas. 😊 Precisa de mais detalhes?",
+            "from": "qwen",
+            "timestamp": "12:57 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Acho q não,.obrigado",
+            "from": "cliente",
+            "timestamp": "12:57 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! Fico à disposição se precisar de mais alguma coisa. 😊 Tenha um ótimo dia!",
+            "from": "qwen",
+            "timestamp": "12:57 23/03/25"
+        }
+    ]
+}

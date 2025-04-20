@@ -1,0 +1,813 @@
+Quero que crie para mim um programa em que eu digite uma palavra chave e ele digite essa palavra no google, e acesse cada link dessa janela e copie cada token possível dessa página. e salve em um arquivo txt. Simplesmente isso. Não precisa logar em nenhum site, nem resolver captcha, nem nada disso. Apenas acessar a página, copiar os tokens disponíveis e salva-los em um arquivo txt, indiscriminadamente. Se, por exemplo, um link levar a uma página escrito assim: "acesso restrito", apenas salvar "acesso" e "restrito". O sistema deverá apenas "clicar" nos links disponíveis e armazenar o que der para armazenar. Tendo armazenado todos os tokens dessa pagina, ir para a próxima. Se nenhum link levar a uma página nova, retornar à pagina anterior e abrir o proximo link.
+A dinâmica das aberturas deve seguir uma ordem. Por exemplo. digito "números" no google e aparece a seguinte pagina:
+
+
+link 1
+link 2
+link 3
+link n
+
+
+Armazenar todos os tokens desta tela e marcar o link desta página como "lido" (O sistema não poderá armazenar duas vezes o conteúdo da mesma página), na ordem que aparecem, em um arquivo de texto.
+clicar no link 1, que abrirá uma outra página com mais inúmeros links, repetir o processo: armazenar todos os tokens que parecem, na ordem que aparecem no arquivo de texto e "clicar" no primeiro desta nova tela. Assim que se chegue a um "ponto sem saída", ou seja, quando ao clicar em um novo link, o sistema retornar a uma página marcada como "lida", o sistema deverá clicar no segundo link dessa página, que abrirá uma nova, e o sistema deverá clicar no link 1 dessa pagina, e assim por diante. Essa lógica deve ser usada desde a primeira até a última, uma página por vez. E o que tenho até o momento é isso:
+import time
+import requests
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from webdriver_manager.chrome import ChromeDriverManager
+
+# Configurações iniciais
+visited_urls = set()  # Conjunto para armazenar URLs já visitadas
+output_file = "tokens.txt"  # Arquivo onde os tokens serão salvos
+
+# Função para salvar tokens em um arquivo
+def save_tokens(tokens):
+    with open(output_file, "a", encoding="utf-8") as file:
+        file.write(" ".join(tokens) + "\n")
+
+# Função para extrair tokens de uma página HTML
+def extract_tokens(html_content):
+    soup = BeautifulSoup(html_content, "html.parser")
+    text = soup.get_text(separator=" ")
+    tokens = text.split()
+    return tokens
+
+# Função para buscar links em uma página
+def extract_links(html_content, base_url):
+    soup = BeautifulSoup(html_content, "html.parser")
+    links = set()
+    for a_tag in soup.find_all("a", href=True):
+        link = a_tag["href"]
+        if link.startswith("http") and base_url in link:  # Filtra links válidos
+            links.add(link)
+    return links
+
+# Função principal
+def main():
+    keyword = input("Digite a palavra-chave para pesquisar no Google: ")
+    
+    # Configurar o WebDriver do Selenium
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+    driver.get("https://www.google.com")
+    
+    # Pesquisar a palavra-chave no Google
+    search_box = driver.find_element(By.NAME, "q")
+    search_box.send_keys(keyword)
+    search_box.send_keys(Keys.RETURN)
+    time.sleep(3)  # Aguardar a página carregar
+    
+    # Coletar links da página de resultados do Google
+    google_page = driver.page_source
+    soup = BeautifulSoup(google_page, "html.parser")
+    result_links = set()
+    for a_tag in soup.find_all("a", href=True):
+        link = a_tag["href"]
+        if link.startswith("/url?q="):  # Links do Google começam com "/url?q="
+            link = link.split("/url?q=")[1].split("&")[0]
+            result_links.add(link)
+    
+    # Processar cada link encontrado
+    to_visit = list(result_links)
+    while to_visit:
+        current_url = to_visit.pop(0)
+        if current_url in visited_urls:
+            continue  # Ignorar URLs já visitadas
+        
+        try:
+            print(f"Acessando: {current_url}")
+            driver.get(current_url)
+            time.sleep(3)  # Aguardar a página carregar
+            
+            # Extrair tokens da página atual
+            page_html = driver.page_source
+            tokens = extract_tokens(page_html)
+            save_tokens(tokens)
+            
+            # Marcar URL como visitada
+            visited_urls.add(current_url)
+            
+            # Extrair novos links da página atual
+            new_links = extract_links(page_html, current_url)
+            for link in new_links:
+                if link not in visited_urls and link not in to_visit:
+                    to_visit.append(link)
+        
+        except Exception as e:
+            print(f"Erro ao acessar {current_url}: {e}")
+    
+    # Fechar o navegador
+    driver.quit()
+    print(f"Processo concluído. Tokens salvos em '{output_file}'.")
+
+if __name__ == "__main__":
+    main()
+e esse é o erro no terminal:
+
+PS C:\Users\André\Desktop\Projetos\llm> python -u "c:\Users\André\Desktop\Projetos\llm\odome
+
+
+
+
+
+
+
+
+
+
+
+
+                                        python -u "c:\Users\André\Desktop\Projetos\llm\odometro.py"
+Traceback (most recent call last):
+  File "c:\Users\AndrÚ\Desktop\Projetos\llm\odometro.py", line 68, in load_files
+    self.token_counter.process_file(file_path)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "c:\Users\AndrÚ\Desktop\Projetos\llm\odometro.py", line 34, in process_file
+    reader = PyPDF2.PdfFileReader(f)
+  File "C:\Users\AndrÚ\AppData\Roaming\Python\Python313\site-packages\PyPDF2\_reader.py", line 1974, in __init__
+    deprecation_with_replacement("PdfFileReader", "PdfReader", "3.0.0")
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\AndrÚ\AppData\Roaming\Python\Python313\site-packages\PyPDF2\_utils.py", line 369, in deprecation_with_replacement
+    deprecation(DEPR_MSG_HAPPENED.format(old_name, removed_in, new_name))
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\AndrÚ\AppData\Roaming\Python\Python313\site-packages\PyPDF2\_utils.py", line 351, in deprecation
+    raise DeprecationError(msg)
+PyPDF2.errors.DeprecationError: PdfFileReader is deprecated and was removed in PyPDF2 3.0.0. Use PdfReader instead.
+PS C:\Users\André\Desktop\Projetos\llm> python -u "c:\Users\André\Desktop\Projetos\llm\odometro.py"
+PS C:\Users\André\Desktop\Projetos\llm> python -u "c:\Users\André\Desktop\Projetos\llm\coletor.py"
+Traceback (most recent call last):
+  File "c:\Users\André\Desktop\Projetos\llm\coletor.py", line 8, in <module>
+    from webdriver_manager.chrome import ChromeDriverManager
+ModuleNotFoundError: No module named 'webdriver_manager'
+PS C:\Users\André\Desktop\Projetos\llm> pip install requests beautifulsoup4 selenium webdriver-manager
+Defaulting to user installation because normal site-packages is not writeable
+Requirement already satisfied: requests in c:\users\andré\appdata\roaming\python\python313\site-packages (2.32.3)
+Requirement already satisfied: beautifulsoup4 in c:\users\andré\appdata\roaming\python\python313\site-packages (4.13.3)
+Requirement already satisfied: selenium in c:\users\andré\appdata\roaming\python\python313\site-packages (4.29.0)
+Collecting webdriver-manager
+  Downloading webdriver_manager-4.0.2-py2.py3-none-any.whl.metadata (12 kB)
+Requirement already satisfied: charset-normalizer<4,>=2 in c:\users\andré\appdata\roaming\python\python313\site-packages (from requests) (3.4.0)
+Requirement already satisfied: idna<4,>=2.5 in c:\users\andré\appdata\roaming\python\python313\site-packages (from requests) (3.10)
+Requirement already satisfied: urllib3<3,>=1.21.1 in c:\users\andré\appdata\roaming\python\python313\site-packages (from requests) (2.2.3)  
+Requirement already satisfied: certifi>=2017.4.17 in c:\users\andré\appdata\roaming\python\python313\site-packages (from requests) (2024.8.30)
+Requirement already satisfied: soupsieve>1.2 in c:\users\andré\appdata\roaming\python\python313\site-packages (from beautifulsoup4) (2.6)   
+Requirement already satisfied: typing-extensions>=4.0.0 in c:\users\andré\appdata\roaming\python\python313\site-packages (from beautifulsoup4) (4.12.2)
+Requirement already satisfied: trio~=0.17 in c:\users\andré\appdata\roaming\python\python313\site-packages (from selenium) (0.29.0)
+Requirement already satisfied: trio-websocket~=0.9 in c:\users\andré\appdata\roaming\python\python313\site-packages (from selenium) (0.12.2)
+Requirement already satisfied: websocket-client~=1.8 in c:\users\andré\appdata\roaming\python\python313\site-packages (from selenium) (1.8.0)
+Requirement already satisfied: python-dotenv in c:\users\andré\appdata\roaming\python\python313\site-packages (from webdriver-manager) (1.0.1)
+Requirement already satisfied: packaging in c:\users\andré\appdata\roaming\python\python313\site-packages (from webdriver-manager) (24.2)   
+Requirement already satisfied: attrs>=23.2.0 in c:\users\andré\appdata\roaming\python\python313\site-packages (from trio~=0.17->selenium) (24.3.0)
+Requirement already satisfied: sortedcontainers in c:\users\andré\appdata\roaming\python\python313\site-packages (from trio~=0.17->selenium) (2.4.0)
+Requirement already satisfied: outcome in c:\users\andré\appdata\roaming\python\python313\site-packages (from trio~=0.17->selenium) (1.3.0.post0)
+Requirement already satisfied: sniffio>=1.3.0 in c:\users\andré\appdata\roaming\python\python313\site-packages (from trio~=0.17->selenium) (1.3.1)
+Requirement already satisfied: cffi>=1.14 in c:\users\andré\appdata\roaming\python\python313\site-packages (from trio~=0.17->selenium) (1.17.1)
+Requirement already satisfied: wsproto>=0.14 in c:\users\andré\appdata\roaming\python\python313\site-packages (from trio-websocket~=0.9->selenium) (1.2.0)
+Requirement already satisfied: pysocks!=1.5.7,<2.0,>=1.5.6 in c:\users\andré\appdata\roaming\python\python313\site-packages (from urllib3[socks]<3,>=1.26->selenium) (1.7.1)
+Requirement already satisfied: pycparser in c:\users\andré\appdata\roaming\python\python313\site-packages (from cffi>=1.14->trio~=0.17->selenium) (2.22)
+Requirement already satisfied: h11<1,>=0.9.0 in c:\users\andré\appdata\roaming\python\python313\site-packages (from wsproto>=0.14->trio-websocket~=0.9->selenium) (0.14.0)
+Downloading webdriver_manager-4.0.2-py2.py3-none-any.whl (27 kB)
+Installing collected packages: webdriver-manager
+Successfully installed webdriver-manager-4.0.2
+PS C:\Users\André\Desktop\Projetos\llm> python -u "c:\Users\André\Desktop\Projetos\llm\coletor.py"
+Digite a palavra-chave para pesquisar no Google: epóxi
+
+DevTools listening on ws://127.0.0.1:63652/devtools/browser/75ef80b5-a434-44d6-8b1b-9f797d856f71
+Traceback (most recent call last):
+  File "c:\Users\André\Desktop\Projetos\llm\coletor.py", line 94, in <module>
+    main()
+    ~~~~^^
+  File "c:\Users\André\Desktop\Projetos\llm\coletor.py", line 41, in main
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+  File "C:\Users\André\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\chrome\webdriver.py", line 45, in __init__
+    super().__init__(
+    ~~~~~~~~~~~~~~~~^
+        browser_name=DesiredCapabilities.CHROME["browserName"],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        keep_alive=keep_alive,
+        ^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\André\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\chromium\webdriver.py", line 66, in __init__       
+    super().__init__(command_executor=executor, options=options)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\André\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\remote\webdriver.py", line 250, in __init__        
+    self.start_session(capabilities)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "C:\Users\André\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\remote\webdriver.py", line 342, in start_session   
+    response = self.execute(Command.NEW_SESSION, caps)["value"]
+               ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\André\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\remote\webdriver.py", line 429, in execute
+    self.error_handler.check_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\André\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\remote\errorhandler.py", line 232, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.SessionNotCreatedException: Message: session not created: This version of ChromeDriver only supports Chrome version 114
+Current browser version is 134.0.6998.118 with binary path C:\Program Files\Google\Chrome\Application\chrome.exe
+Stacktrace:
+Backtrace:
+        GetHandleVerifier [0x0066A813+48355]
+        (No symbol) [0x005FC4B1]
+        (No symbol) [0x00505358]
+        (No symbol) [0x005261AC]
+        (No symbol) [0x00521EF3]
+        (No symbol) [0x00520579]
+        (No symbol) [0x00550C55]
+        (No symbol) [0x0055093C]
+        (No symbol) [0x0054A536]
+        (No symbol) [0x005282DC]
+        (No symbol) [0x005293DD]
+        GetHandleVerifier [0x008CAABD+2539405]
+        GetHandleVerifier [0x0090A78F+2800735]
+        GetHandleVerifier [0x0090456C+2775612]
+        GetHandleVerifier [0x006F51E0+616112]
+        (No symbol) [0x00605F8C]
+        (No symbol) [0x00602328]
+        (No symbol) [0x0060240B]
+        (No symbol) [0x005F4FF7]
+        BaseThreadInitThunk [0x77565D49+25]
+        RtlInitializeExceptionChain [0x77CBCE3B+107]
+        RtlGetAppContainerNamedObjectPath [0x77CBCDC1+561]
+
+PS C:\Users\André\Desktop\Projetos\llm> 
+
+
+Quando corrijo para isso:
+
+import time
+import re
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
+
+# Configurações iniciais
+visited_urls = set()  # Conjunto para armazenar URLs já visitadas
+output_file = "tokens.txt"  # Arquivo onde os tokens serão salvos
+
+# Função para salvar tokens em um arquivo
+def save_tokens(tokens):
+    with open(output_file, "a", encoding="utf-8") as file:
+        file.write(" ".join(tokens) + "\n")
+
+# Função para extrair tokens de uma página HTML
+def extract_tokens(html_content):
+    soup = BeautifulSoup(html_content, "html.parser")
+    text = soup.get_text(separator=" ")
+    tokens = re.findall(r'\b\w+\b', text)  # Capturar apenas palavras válidas
+    return tokens
+
+# Função para buscar links em uma página
+def extract_links(html_content):
+    soup = BeautifulSoup(html_content, "html.parser")
+    links = set()
+    for a_tag in soup.find_all("a", href=True):
+        link = a_tag["href"]
+        if re.match(r"^https?://", link):  # Links válidos começam com http/https
+            links.add(link)
+    return links
+
+# Função principal
+def main():
+    keyword = input("Digite a palavra-chave para pesquisar no Google: ")
+
+    # Configurar o WebDriver do Selenium
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Executar em modo headless (sem interface gráfica)
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+
+    try:
+        # Pesquisar a palavra-chave no Google
+        driver.get("https://www.google.com")
+        search_box = driver.find_element(By.NAME, "q")
+        search_box.send_keys(keyword)
+        search_box.send_keys(Keys.RETURN)
+        time.sleep(3)  # Aguardar a página carregar
+
+        # Coletar links da página de resultados do Google
+        google_page = driver.page_source
+        soup = BeautifulSoup(google_page, "html.parser")
+        result_links = set()
+        for a_tag in soup.find_all("a", href=True):
+            link = a_tag["href"]
+            if link.startswith("/url?q="):  # Links do Google começam com "/url?q="
+                link = link.split("/url?q=")[1].split("&")[0]
+                result_links.add(link)
+
+        # Processar cada link encontrado
+        to_visit = list(result_links)
+        while to_visit:
+            current_url = to_visit.pop(0)
+            if current_url in visited_urls:
+                continue  # Ignorar URLs já visitadas
+
+            try:
+                print(f"Acessando: {current_url}")
+                driver.get(current_url)
+                time.sleep(3)  # Aguardar a página carregar
+
+                # Extrair tokens da página atual
+                page_html = driver.page_source
+                tokens = extract_tokens(page_html)
+                save_tokens(tokens)
+
+                # Marcar URL como visitada
+                visited_urls.add(current_url)
+
+                # Extrair novos links da página atual
+                new_links = extract_links(page_html)
+                for link in new_links:
+                    if link not in visited_urls and link not in to_visit:
+                        to_visit.append(link)
+
+            except Exception as e:
+                print(f"Erro ao acessar {current_url}: {e}")
+
+    finally:
+        # Fechar o navegador
+        driver.quit()
+        print(f"Processo concluído. Tokens salvos em '{output_file}'.")
+
+if __name__ == "__main__":
+    main()
+
+aparece esse erro agora:
+
+PS C:\Users\André\Desktop\Projetos\llm> python -u "c:\Users\André\Desktop\Projetos\llm\colet
+
+
+
+
+
+
+
+
+
+
+
+
+                                        python -u "c:\Users\André\Desktop\Projetos\llm\coletor.py"
+Digite a palavra-chave para pesquisar no Google: epóxi
+
+DevTools listening on ws://127.0.0.1:63761/devtools/browser/cc8deb1e-a255-47c3-bc94-95dae29c6280
+Traceback (most recent call last):
+  File "c:\Users\André\Desktop\Projetos\llm\coletor.py", line 102, in <module>
+    main()
+    ~~~~^^
+  File "c:\Users\André\Desktop\Projetos\llm\coletor.py", line 47, in main
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+  File "C:\Users\André\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\chrome\webdriver.py", line 45, in __init__
+    super().__init__(
+    ~~~~~~~~~~~~~~~~^
+        browser_name=DesiredCapabilities.CHROME["browserName"],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        keep_alive=keep_alive,
+        ^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\André\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\chromium\webdriver.py", line 66, in __init__       
+    super().__init__(command_executor=executor, options=options)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\André\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\remote\webdriver.py", line 250, in __init__        
+    self.start_session(capabilities)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "C:\Users\André\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\remote\webdriver.py", line 342, in start_session   
+    response = self.execute(Command.NEW_SESSION, caps)["value"]
+               ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\André\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\remote\webdriver.py", line 429, in execute
+    self.error_handler.check_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\André\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\remote\errorhandler.py", line 232, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.SessionNotCreatedException: Message: session not created: This version of ChromeDriver only supports Chrome version 114
+Current browser version is 134.0.6998.118 with binary path C:\Program Files\Google\Chrome\Application\chrome.exe
+Stacktrace:
+Backtrace:
+        GetHandleVerifier [0x005CA813+48355]
+        (No symbol) [0x0055C4B1]
+        (No symbol) [0x00465358]
+        (No symbol) [0x004861AC]
+        (No symbol) [0x00481EF3]
+        (No symbol) [0x00480579]
+        (No symbol) [0x004B0C55]
+        (No symbol) [0x004B093C]
+        (No symbol) [0x004AA536]
+        (No symbol) [0x004882DC]
+        (No symbol) [0x004893DD]
+        GetHandleVerifier [0x0082AABD+2539405]
+        GetHandleVerifier [0x0086A78F+2800735]
+        GetHandleVerifier [0x0086456C+2775612]
+        GetHandleVerifier [0x006551E0+616112]
+        (No symbol) [0x00565F8C]
+        (No symbol) [0x00562328]
+        (No symbol) [0x0056240B]
+        (No symbol) [0x00554FF7]
+        BaseThreadInitThunk [0x77565D49+25]
+        RtlInitializeExceptionChain [0x77CBCE3B+107]
+        RtlGetAppContainerNamedObjectPath [0x77CBCDC1+561]
+
+e nenhum arquivo de texto foi criado no meu diretório, apesar do print no terminal. Pode parar de cometer os mesmos erros? algo na abordagem atual o sistema parece estar muito errado. Altere o que precisar para que o sistema funcione.
+
+e então foi criado o código abaixo:
+
+import time
+import re
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
+
+# Configurações iniciais
+visited_urls = set()  # Conjunto para armazenar URLs já visitadas
+output_file = "tokens.txt"  # Arquivo onde os tokens serão salvos
+
+# Função para salvar tokens em um arquivo
+def save_tokens(tokens):
+    with open(output_file, "a", encoding="utf-8") as file:
+        file.write(" ".join(tokens) + "\n")
+
+# Função para extrair tokens de uma página HTML
+def extract_tokens(html_content):
+    soup = BeautifulSoup(html_content, "html.parser")
+    text = soup.get_text(separator=" ")
+    tokens = re.findall(r'\b\w+\b', text)  # Capturar apenas palavras válidas
+    return tokens
+
+# Função para buscar links em uma página
+def extract_links(html_content):
+    soup = BeautifulSoup(html_content, "html.parser")
+    links = set()
+    for a_tag in soup.find_all("a", href=True):
+        link = a_tag["href"]
+        if re.match(r"^https?://", link):  # Links válidos começam com http/https
+            links.add(link)
+    return links
+
+# Função principal
+def main():
+    keyword = input("Digite a palavra-chave para pesquisar no Google: ")
+
+    # Configurar o WebDriver do Selenium
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Executar em modo headless (sem interface gráfica)
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--ignore-certificate-errors")
+    chrome_options.add_argument("--allow-running-insecure-content")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--start-maximized")
+    chrome_options.add_argument("--log-level=3")  # Suprimir logs do navegador
+
+    try:
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        # Pesquisar a palavra-chave no Google
+        driver.get("https://www.google.com")
+        search_box = driver.find_element(By.NAME, "q")
+        search_box.send_keys(keyword)
+        search_box.send_keys(Keys.RETURN)
+        time.sleep(3)  # Aguardar a página carregar
+
+        # Coletar links da página de resultados do Google
+        google_page = driver.page_source
+        soup = BeautifulSoup(google_page, "html.parser")
+        result_links = set()
+        for a_tag in soup.find_all("a", href=True):
+            link = a_tag["href"]
+            if link.startswith("/url?q="):  # Links do Google começam com "/url?q="
+                link = link.split("/url?q=")[1].split("&")[0]
+                if re.match(r"^https?://", link):  # Garantir que é um link válido
+                    result_links.add(link)
+
+        # Processar cada link encontrado
+        to_visit = list(result_links)
+        while to_visit:
+            current_url = to_visit.pop(0)
+            if current_url in visited_urls:
+                continue  # Ignorar URLs já visitadas
+
+            try:
+                print(f"Acessando: {current_url}")
+                driver.get(current_url)
+                time.sleep(5)  # Aguardar a página carregar
+
+                # Extrair tokens da página atual
+                page_html = driver.page_source
+                tokens = extract_tokens(page_html)
+                save_tokens(tokens)
+
+                # Marcar URL como visitada
+                visited_urls.add(current_url)
+
+                # Extrair novos links da página atual
+                new_links = extract_links(page_html)
+                for link in new_links:
+                    if link not in visited_urls and link not in to_visit:
+                        to_visit.append(link)
+
+            except Exception as e:
+                print(f"Erro ao acessar {current_url}: {e}")
+
+    except Exception as e:
+        print(f"Erro crítico: {e}")
+
+    finally:
+        # Fechar o navegador
+        if 'driver' in locals():
+            driver.quit()
+        print(f"Processo concluído. Tokens salvos em '{output_file}'.")
+
+if __name__ == "__main__":
+    main()
+
+e nenhum arquivo de texto foi criado no meu diretório, apesar do print no terminal. Pode parar de cometer os mesmos erros? algo na abordagem atual o sistema parece estar muito errado. Altere o que precisar para que o sistema funcione.
+e apresentou o seguinte erro:
+
+PS C:\Users\André\Desktop\Projetos\llm> python -u "c:\Users\André\Desktop\Projetos\llm\tempCodeRunnerFile.p
+
+
+
+
+
+
+
+
+
+
+
+
+                                        python -u "c:\Users\André\Desktop\Projetos\llm\tempCodeRunnerFile.py"
+Digite a palavra-chave para pesquisar no Google: póxi
+
+DevTools listening on ws://127.0.0.1:63860/devtools/browser/d1604b11-2235-4b88-92da-95e85bdab797
+Erro crítico: Message: session not created: This version of ChromeDriver only supports Chrome version 114
+Current browser version is 134.0.6998.118 with binary path C:\Program Files\Google\Chrome\Application\chrome.exe
+Stacktrace:
+Backtrace:
+        GetHandleVerifier [0x0076A813+48355]
+        (No symbol) [0x006FC4B1]
+        (No symbol) [0x00605358]
+        (No symbol) [0x006261AC]
+        (No symbol) [0x00621EF3]
+        (No symbol) [0x00620579]
+        (No symbol) [0x00650C55]
+        (No symbol) [0x0065093C]
+        (No symbol) [0x0064A536]
+        (No symbol) [0x006282DC]
+        (No symbol) [0x006293DD]
+        GetHandleVerifier [0x009CAABD+2539405]
+        GetHandleVerifier [0x00A0A78F+2800735]
+        GetHandleVerifier [0x00A0456C+2775612]
+        GetHandleVerifier [0x007F51E0+616112]
+        (No symbol) [0x00705F8C]
+        (No symbol) [0x00702328]
+        (No symbol) [0x0070240B]
+        (No symbol) [0x006F4FF7]
+        BaseThreadInitThunk [0x77565D49+25]
+        RtlInitializeExceptionChain [0x77CBCE3B+107]
+        RtlGetAppContainerNamedObjectPath [0x77CBCDC1+561]
+
+Aí tentou-se esse código como solução:
+
+Digite a palavra-chave para pesquisar no Google: epóxi
+
+DevTools listening on ws://127.0.0.1:63898/devtools/browser/fa36282e-4b19-4e27-aed8-e6748215822d
+Erro crítico: Message: session not created: This version of ChromeDriver only supports Chrome version 114
+Current browser version is 134.0.6998.118 with binary path C:\Program Files\Google\Chrome\Application\chrome.exe
+Stacktrace:
+Backtrace:
+        GetHandleVerifier [0x010DA813+48355]
+        (No symbol) [0x0106C4B1]
+        (No symbol) [0x00F75358]
+        (No symbol) [0x00F961AC]
+        (No symbol) [0x00F91EF3]
+        (No symbol) [0x00F90579]
+        (No symbol) [0x00FC0C55]
+        (No symbol) [0x00FC093C]
+        (No symbol) [0x00FBA536]
+        (No symbol) [0x00F982DC]
+        (No symbol) [0x00F993DD]
+        GetHandleVerifier [0x0133AABD+2539405]
+        GetHandleVerifier [0x0137A78F+2800735]
+        GetHandleVerifier [0x0137456C+2775612]
+        GetHandleVerifier [0x011651E0+616112]
+        (No symbol) [0x01075F8C]
+        (No symbol) [0x01072328]
+        (No symbol) [0x0107240B]
+        (No symbol) [0x01064FF7]
+        BaseThreadInitThunk [0x77565D49+25]
+        RtlInitializeExceptionChain [0x77CBCE3B+107]
+        RtlGetAppContainerNamedObjectPath [0x77CBCDC1+561]
+
+Processo concluído. Tokens salvos em 'tokens.txt'.
+PS C:\Users\André\Desktop\Projetos\llm> 
+
+mas o resultado foi esse:
+
+Digite a palavra-chave para pesquisar no Google: epóxi
+
+DevTools listening on ws://127.0.0.1:63898/devtools/browser/fa36282e-4b19-4e27-aed8-e6748215822d
+Erro crítico: Message: session not created: This version of ChromeDriver only supports Chrome version 114
+Current browser version is 134.0.6998.118 with binary path C:\Program Files\Google\Chrome\Application\chrome.exe
+Stacktrace:
+Backtrace:
+        GetHandleVerifier [0x010DA813+48355]
+        (No symbol) [0x0106C4B1]
+        (No symbol) [0x00F75358]
+        (No symbol) [0x00F961AC]
+        (No symbol) [0x00F91EF3]
+        (No symbol) [0x00F90579]
+        (No symbol) [0x00FC0C55]
+        (No symbol) [0x00FC093C]
+        (No symbol) [0x00FBA536]
+        (No symbol) [0x00F982DC]
+        (No symbol) [0x00F993DD]
+        GetHandleVerifier [0x0133AABD+2539405]
+        GetHandleVerifier [0x0137A78F+2800735]
+        GetHandleVerifier [0x0137456C+2775612]
+        GetHandleVerifier [0x011651E0+616112]
+        (No symbol) [0x01075F8C]
+        (No symbol) [0x01072328]
+        (No symbol) [0x0107240B]
+        (No symbol) [0x01064FF7]
+        BaseThreadInitThunk [0x77565D49+25]
+        RtlInitializeExceptionChain [0x77CBCE3B+107]
+        RtlGetAppContainerNamedObjectPath [0x77CBCDC1+561]
+
+Processo concluído. Tokens salvos em 'tokens.txt'.
+PS C:\Users\André\Desktop\Projetos\llm> 
+
+e nenhum arquivo de texto foi criado no meu diretório, apesar do print no terminal. Pode parar de cometer os mesmos erros? algo na abordagem atual o sistema parece estar muito errado. Altere o que precisar para que o sistema funcione.
+
+
+
+e então você criou este código abaixo:
+
+import time
+import re
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
+
+visited_urls = set()
+output_file = "tokens.txt"
+
+def save_tokens(tokens):
+    with open(output_file, "a", encoding="utf-8") as file:
+        file.write(" ".join(tokens) + "\n")
+
+def extract_tokens(html_content):
+    soup = BeautifulSoup(html_content, "html.parser")
+    text = soup.get_text(separator=" ")
+    tokens = re.findall(r'\b\w+\b', text)
+    return tokens
+
+def extract_links(html_content):
+    soup = BeautifulSoup(html_content, "html.parser")
+    links = set()
+    for a_tag in soup.find_all("a", href=True):
+        link = a_tag["href"]
+        if re.match(r"^https?://", link):
+            links.add(link)
+    return links
+
+def main():
+    keyword = input("Digite a palavra-chave para pesquisar no Google: ")
+
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--ignore-certificate-errors")
+    chrome_options.add_argument("--allow-running-insecure-content")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--log-level=3")
+
+    driver = None
+    try:
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        driver.get("https://www.google.com")
+        search_box = driver.find_element(By.NAME, "q")
+        search_box.send_keys(keyword)
+        search_box.send_keys(Keys.RETURN)
+        time.sleep(5)
+
+        google_page = driver.page_source
+        soup = BeautifulSoup(google_page, "html.parser")
+        result_links = set()
+        for a_tag in soup.find_all("a", href=True):
+            link = a_tag["href"]
+            if link.startswith("/url?q="):
+                link = link.split("/url?q=")[1].split("&")[0]
+                if re.match(r"^https?://", link):
+                    result_links.add(link)
+
+        to_visit = list(result_links)
+        while to_visit:
+            current_url = to_visit.pop(0)
+            if current_url in visited_urls:
+                continue
+
+            try:
+                print(f"Acessando: {current_url}")
+                driver.get(current_url)
+                time.sleep(5)
+
+                page_html = driver.page_source
+                tokens = extract_tokens(page_html)
+                save_tokens(tokens)
+                visited_urls.add(current_url)
+
+                new_links = extract_links(page_html)
+                for link in new_links:
+                    if link not in visited_urls and link not in to_visit:
+                        to_visit.append(link)
+
+            except Exception as e:
+                print(f"Erro ao acessar {current_url}: {e}")
+
+    except Exception as e:
+        print(f"Erro crítico: {e}")
+
+    finally:
+        if driver:
+            driver.quit()
+        print(f"Processo concluído. Tokens salvos em '{output_file}'.")
+
+if __name__ == "__main__":
+    main()
+
+
+
+
+
+mas tinha esse erro:
+
+PS C:\Users\André\Desktop\Projetos\llm> python -u "c:\Users\André\Desktop\Projetos\llm\tempCodeRunnerF
+
+
+
+
+
+
+
+
+
+
+
+
+                                        python -u "c:\Users\André\Desktop\Projetos\llm\tempCodeRunnerFile.py"
+Digite a palavra-chave para pesquisar no Google: epóxi
+
+DevTools listening on ws://127.0.0.1:63973/devtools/browser/3c04f255-c140-4e87-ae11-2f930d299953
+Erro crítico: Message: session not created: This version of ChromeDriver only supports Chrome version 114
+Current browser version is 134.0.6998.118 with binary path C:\Program Files\Google\Chrome\Application\chrome.exe
+Stacktrace:
+Backtrace:
+        GetHandleVerifier [0x00AFA813+48355]
+        (No symbol) [0x00A8C4B1]
+        (No symbol) [0x00995358]
+        (No symbol) [0x009B61AC]
+        (No symbol) [0x009B1EF3]
+        (No symbol) [0x009B0579]
+        (No symbol) [0x009E0C55]
+        (No symbol) [0x009E093C]
+        (No symbol) [0x009DA536]
+        (No symbol) [0x009B82DC]
+        (No symbol) [0x009B93DD]
+        GetHandleVerifier [0x00D5AABD+2539405]
+        GetHandleVerifier [0x00D9A78F+2800735]
+        GetHandleVerifier [0x00D9456C+2775612]
+        GetHandleVerifier [0x00B851E0+616112]
+        (No symbol) [0x00A95F8C]
+        (No symbol) [0x00A92328]
+        (No symbol) [0x00A9240B]
+        (No symbol) [0x00A84FF7]
+        BaseThreadInitThunk [0x77565D49+25]
+        RtlInitializeExceptionChain [0x77CBCE3B+107]
+        RtlGetAppContainerNamedObjectPath [0x77CBCDC1+561]
+
+Processo concluído. Tokens salvos em 'tokens.txt'.
+PS C:\Users\André\Desktop\Projetos\llm> 
+
+veja meu projeto e tudo o qeu tentei, e por favor, crie um novo sistema, com uma aborgagem diferente do promeiro mas com o mesmo proposioito, pois a atual nao fincionou em hipotese alguma em nenhum momento. Pode me ajufar? a abordagem acima deve ser descartada, pois não funcinona
+
+

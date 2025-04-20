@@ -1,0 +1,647 @@
+# BACKUP CRIADO EM: 2025-03-24 08:27:55
+# Total de arquivos: 6
+
+# INÍCIO DO ARQUIVO: main.py (1/6) 
+from WhatsApp_Manager import WhatsAppManager
+from flask import Flask, render_template, request, jsonify
+
+app = Flask(__name__, template_folder="templates", static_folder="static")
+
+# Inicializa o gerenciador do WhatsApp
+whatsapp_manager = WhatsAppManager()
+
+@app.route('/')
+def index():
+    # Renderiza a página inicial com as conversas existentes
+    conversations = whatsapp_manager.conversations
+    return render_template('index.html', conversations=conversations)
+
+@app.route('/conversation/<phone_number>')
+def get_conversation(phone_number):
+    # Retorna o histórico de mensagens de um número específico
+    messages = whatsapp_manager.get_conversation_history(phone_number)
+    return jsonify(messages)
+
+@app.route('/send_message', methods=['POST'])
+def send_message():
+    # Envia uma mensagem para um número via API do WhatsApp
+    data = request.json
+    to_number = data.get("to_number")
+    message = data.get("message")
+    success = whatsapp_manager.send_message_to_whatsapp(to_number, message)
+    if success:
+        return jsonify({"status": "success"}), 200
+    else:
+        return jsonify({"status": "error"}), 500
+
+@app.route('/webhook', methods=['GET'])
+def verify_webhook():
+    # Verifica o webhook da Meta
+    mode = request.args.get("hub.mode")
+    token = request.args.get("hub.verify_token")
+    challenge = request.args.get("hub.challenge")
+
+    if mode and token == whatsapp_manager.VERIFICATION_TOKEN:
+        print("Webhook verificado com sucesso!")
+        return challenge, 200
+    else:
+        print("Token inválido!")
+        return "Token inválido", 403
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    # Processa mensagens recebidas via webhook
+    try:
+        data = request.json
+        print(f"Mensagem recebida via webhook: {data}")
+        whatsapp_manager.handle_incoming_message(data)
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        print(f"Erro ao processar mensagem do webhook: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+if __name__ == "__main__":
+    print("Iniciando servidor Flask na porta 5000...")
+    app.run(port=5000)
+# FIM DO ARQUIVO: main.py 
+
+# INÍCIO DO ARQUIVO: WhatsApp_Manager.py (2/6) 
+import requests
+import os
+import json
+from datetime import datetime
+from qwen1 import process_message  # Importa a função process_message do módulo qwen1
+
+class WhatsAppManager:
+    def __init__(self):
+        self.VERIFICATION_TOKEN = "EAAJjZBmxpkYgBOyEx31oz53K3694dZCg81dZA17ym3W9rCFjmax29HMwcdgq8iZBawUoNw1vzTlYSGAbIWTN4MRkWZBA0wMpwfLfI6dHaaMyhUZC1qZADUbZBZCNMhOw8a0AI2sBHpBLtbEbMrhBGZBNh81teK7z0ZBX338LZBTHRXYr96YTytPiv1JRD5Vyiis5pl5yhpUHzjHDhgZDZD"
+        self.WHATSAPP_TOKEN = "EAAJjZBmxpkYgBOyEx31oz53K3694dZCg81dZA17ym3W9rCFjmax29HMwcdgq8iZBawUoNw1vzTlYSGAbIWTN4MRkWZBA0wMpwfLfI6dHaaMyhUZC1qZADUbZBZCNMhOw8a0AI2sBHpBLtbEbMrhBGZBNh81teK7z0ZBX338LZBTHRXYr96YTytPiv1JRD5Vyiis5pl5yhpUHzjHDhgZDZD"
+        self.PHONE_NUMBER_ID = "637338086121702"
+        self.conversations = {}  # Estrutura: {phone_number: {"name": "Cliente", "messages": [{"text": "mensagem", "from": "cliente/qwen", "timestamp": "datetime"}]}}
+        self.CONVERSATION_DIR = "conversations"  # Diretório para salvar conversas
+        # Cria o diretório de conversas se ele não existir
+        if not os.path.exists(self.CONVERSATION_DIR):
+            os.makedirs(self.CONVERSATION_DIR)
+        # Carrega conversas salvas anteriormente
+        self.load_conversations()
+
+    def load_conversations(self):
+        """Carrega conversas salvas no diretório."""
+        for filename in os.listdir(self.CONVERSATION_DIR):
+            phone_number = filename.split(".")[0]
+            filepath = os.path.join(self.CONVERSATION_DIR, filename)
+            with open(filepath, "r") as file:
+                self.conversations[phone_number] = json.load(file)
+        print(f"{len(self.conversations)} conversas carregadas.")
+
+    def save_conversation(self, phone_number):
+        """Salva a conversa de um número específico no disco."""
+        filepath = os.path.join(self.CONVERSATION_DIR, f"{phone_number}.json")
+        with open(filepath, "w") as file:
+            json.dump(self.conversations.get(phone_number, {}), file, indent=4)
+        print(f"Conversa com {phone_number} salva.")
+
+    def handle_incoming_message(self, data):
+        try:
+            print(f"Dados recebidos via webhook: {data}")
+            if "messages" in data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}):
+                phone_number = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("wa_id", "")
+                client_name = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("profile", {}).get("name", "Desconhecido")
+                message_text = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("messages", [{}])[0].get("text", {}).get("body", "")
+
+                # Inicializa a conversa se for a primeira vez
+                if phone_number not in self.conversations:
+                    self.conversations[phone_number] = {
+                        "name": client_name,
+                        "messages": []
+                    }
+
+                # Adiciona a mensagem do cliente à conversa com timestamp
+                timestamp = datetime.now().strftime("%H:%M %d/%m/%y")
+                self.conversations[phone_number]["messages"].append({
+                    "text": message_text,
+                    "from": "cliente",
+                    "timestamp": timestamp
+                })
+                self.save_conversation(phone_number)
+
+                print(f"Mensagem do cliente {client_name} ({phone_number}) recebida: {message_text}")
+
+                # Processa a mensagem com o Qwen
+                resposta_qwen = process_message(message_text, phone_number)  # Chama o Qwen
+                if resposta_qwen:
+                    # Envia a resposta do Qwen de volta ao cliente
+                    self.send_message_to_whatsapp(phone_number, resposta_qwen)
+
+        except Exception as e:
+            print(f"Erro ao processar mensagem: {str(e)}")
+
+    def send_message_to_whatsapp(self, to_number, message):
+        try:
+            url = f"https://graph.facebook.com/v16.0/{self.PHONE_NUMBER_ID}/messages"
+            headers = {
+                "Authorization": f"Bearer {self.WHATSAPP_TOKEN}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": to_number,
+                "type": "text",
+                "text": {
+                    "body": message
+                }
+            }
+            response = requests.post(url, json=payload, headers=headers)
+            if response.status_code == 200:
+                print(f"Mensagem enviada com sucesso para {to_number}: {message}")
+                # Adiciona a mensagem enviada ao histórico com timestamp
+                timestamp = datetime.now().strftime("%H:%M %d/%m/%y")
+                if to_number not in self.conversations:
+                    self.conversations[to_number] = {
+                        "name": "Desconhecido",  # Nome será atualizado quando recebermos a próxima mensagem do cliente
+                        "messages": []
+                    }
+                self.conversations[to_number]["messages"].append({
+                    "text": message,
+                    "from": "qwen",
+                    "timestamp": timestamp
+                })
+                # Salva a conversa no disco
+                self.save_conversation(to_number)
+                return True
+            else:
+                print(f"Falha ao enviar mensagem para {to_number}: {response.text}")
+                return False
+        except Exception as e:
+            print(f"Erro ao enviar mensagem: {str(e)}")
+            return False
+
+    def get_conversation_history(self, phone_number):
+        return self.conversations.get(phone_number, {})
+# FIM DO ARQUIVO: WhatsApp_Manager.py 
+
+# INÍCIO DO ARQUIVO: qwen1.py (3/6) 
+import json
+import os
+import requests
+from datetime import datetime
+
+# Variável InputWhats (será atualizada dinamicamente)
+InputWhats = ""
+
+# Função para ler o conteúdo de um arquivo de texto
+def ler_arquivo(nome_arquivo):
+    try:
+        with open(nome_arquivo, 'r', encoding='utf-8') as arquivo:
+            return arquivo.read()
+    except FileNotFoundError:
+        print(f"Arquivo {nome_arquivo} não encontrado.")
+        return ""
+    except Exception as e:
+        print(f"Erro ao ler o arquivo {nome_arquivo}: {e}")
+        return ""
+
+# Função para salvar o histórico em um arquivo JSON
+def salvar_historico(phone_number, historico):
+    try:
+        with open(f'conversations/{phone_number}.json', 'w', encoding='utf-8') as arquivo:
+            json.dump(historico, arquivo, ensure_ascii=False, indent=4)
+        print(f"Histórico da conversa com {phone_number} salvo.")
+    except Exception as e:
+        print(f"Erro ao salvar o histórico: {e}")
+
+# Função para enviar a mensagem para a API do DeepSeek
+def enviar_para_deepseek(prompt):
+    API_KEY = "sk-8505379415ba47f39c1694ca1ebdd6a2"  # Sua chave de API do DeepSeek
+    URL = "https://api.deepseek.com/v1/chat/completions"  # Endpoint da API do DeepSeek
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": "deepseek-chat",  # Modelo do DeepSeek
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.8,
+        "max_tokens": 6000
+    }
+
+    try:
+        response = requests.post(URL, headers=headers, json=data)
+        response.raise_for_status()  # Lança exceção para códigos de erro HTTP
+        return response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+    except requests.exceptions.RequestException as e:
+        print(f"Erro ao enviar solicitação para a API do DeepSeek: {e}")
+        return None
+
+# Função principal para executar o fluxo descrito
+def process_message(message, phone_number):
+    global InputWhats
+    InputWhats = message  # Atualiza InputWhats com a mensagem recebida
+
+    # Passo 1: Ler os arquivos de instrução fixa e dados
+    instrucao_fixa = ler_arquivo("instrucaoFixa.txt")
+    dados = ler_arquivo("Dados.txt")
+
+    # Passo 2: Verificar se há histórico de conversas para o número de telefone
+    historico_conversa = []
+    historico_file = f"conversations/{phone_number}.json"
+    if os.path.exists(historico_file):
+        with open(historico_file, 'r', encoding='utf-8') as arquivo:
+            historico_conversa = json.load(arquivo).get("messages", [])
+    else:
+        historico_conversa = ["Primeiro Contato Deste Cliente"]
+
+    # Passo 3: Combinar os conteúdos na ordem especificada
+    InputDeepSeek = f"{InputWhats}\n\n{instrucao_fixa}\n\n{dados}\n\nHistórico:\n{json.dumps(historico_conversa, ensure_ascii=False, indent=4)}"
+
+    # Passo 4: Enviar o conteúdo para a API do DeepSeek
+    resposta_deepseek = enviar_para_deepseek(InputDeepSeek)
+
+    if resposta_deepseek is not None:
+        print("Resposta do DeepSeek:", resposta_deepseek)
+
+        # Passo 5: Salvar a nova mensagem e a resposta no histórico
+        nova_mensagem = {
+            "text": message,
+            "from": "cliente",
+            "timestamp": datetime.now().strftime("%H:%M %d/%m/%y")
+        }
+        nova_resposta = {
+            "text": resposta_deepseek,
+            "from": "deepseek",
+            "timestamp": datetime.now().strftime("%H:%M %d/%m/%y")
+        }
+
+        # Carregar o histórico existente ou criar um novo
+        if os.path.exists(historico_file):
+            with open(historico_file, 'r', encoding='utf-8') as arquivo:
+                historico_existente = json.load(arquivo)
+        else:
+            historico_existente = {"messages": []}
+
+        # Adicionar a nova mensagem e resposta ao histórico
+        historico_existente["messages"].extend([nova_mensagem, nova_resposta])
+
+        # Salvar o histórico atualizado
+        salvar_historico(phone_number, historico_existente)
+
+        return resposta_deepseek  # Retorna a resposta do DeepSeek para ser usada externamente
+    else:
+        print("Não foi possível obter uma resposta do DeepSeek.")
+        return None
+# FIM DO ARQUIVO: qwen1.py 
+
+# INÍCIO DO ARQUIVO: Webhook_Server.py (4/6) 
+from flask import Flask, request, jsonify, render_template
+
+class WebhookServer:
+    def __init__(self, whatsapp_manager):
+        self.app = Flask(__name__)
+        self.whatsapp_manager = whatsapp_manager
+        self.setup_routes()
+
+    def setup_routes(self):
+        @self.app.route('/')
+        def index():
+            conversations = self.whatsapp_manager.conversations
+            return render_template('index.html', conversations=conversations)
+
+        @self.app.route('/webhook', methods=['GET'])
+        def verify_webhook():
+            mode = request.args.get("hub.mode")
+            token = request.args.get("hub.verify_token")
+            challenge = request.args.get("hub.challenge")
+
+            if mode and token == self.whatsapp_manager.VERIFICATION_TOKEN:
+                print("Webhook verificado com sucesso!")
+                return challenge, 200
+            else:
+                print("Token inválido!")
+                return "Token inválido", 403
+
+        @self.app.route('/webhook', methods=['POST'])
+        def webhook():
+            try:
+                data = request.json
+                print(f"Mensagem recebida via webhook: {data}")
+                self.whatsapp_manager.handle_incoming_message(data)
+                return jsonify({"status": "ok"}), 200
+            except Exception as e:
+                print(f"Erro ao processar mensagem do webhook: {str(e)}")
+                return jsonify({"status": "error", "message": str(e)}), 500
+
+    def run(self, port=5000):
+        print(f"Iniciando servidor webhook na porta {port}...")
+        self.app.run(port=port)
+# FIM DO ARQUIVO: Webhook_Server.py 
+
+<!-- INÍCIO DO ARQUIVO: index.html (5/6) -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interface de Atendimento</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="left-column">
+            <div class="search-bar">
+                <input type="text" placeholder="Buscar conversas...">
+            </div>
+            <div class="new-conversation">
+                <input type="text" id="new-phone" placeholder="Digite o número do telefone">
+                <button onclick="startNewConversation()">Iniciar Conversa</button>
+            </div>
+            <div class="conversation-list" id="conversation-list">
+                {% for phone, messages in conversations.items() %}
+                <div class="conversation-item" onclick="loadConversation('{{ phone }}')">
+                    <div class="name">{{ phone }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="right-column">
+            <div class="header">
+                <div class="contact-name" id="contact-name">Contato Selecionado</div>
+            </div>
+            <div class="message-area" id="message-area">
+            </div>
+            <div class="input-area">
+                <textarea placeholder="Digite sua mensagem..." id="message-input"></textarea>
+                <button onclick="sendMessage()">Enviar</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        let currentPhone = null;
+
+        // Carrega a conversa de um número específico
+        function loadConversation(phone) {
+            currentPhone = phone;
+            document.getElementById('contact-name').innerText = phone; // Exibe o número no cabeçalho
+            fetch(`/conversation/${phone}`)
+                .then(response => response.json())
+                .then(messages => {
+                    const messageArea = document.getElementById('message-area');
+                    messageArea.innerHTML = ''; // Limpa a área de mensagens
+                    messages.forEach(msg => {
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = `message ${msg.from}`;
+                        messageDiv.textContent = msg.text;
+                        messageArea.appendChild(messageDiv);
+                    });
+                });
+        }
+
+        // Envia uma mensagem para o número atualmente selecionado
+        function sendMessage() {
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value.trim();
+            if (!currentPhone || !message) {
+                alert("Selecione uma conversa e digite uma mensagem!");
+                return;
+            }
+
+            fetch('/send_message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to_number: currentPhone, message: message })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    const messageArea = document.getElementById('message-area');
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'message seller';
+                    messageDiv.textContent = message;
+                    messageArea.appendChild(messageDiv);
+                    messageInput.value = '';
+                } else {
+                    alert("Falha ao enviar mensagem!");
+                }
+            });
+        }
+
+        // Inicia uma nova conversa com um número fornecido pelo usuário
+        function startNewConversation() {
+            const phoneInput = document.getElementById('new-phone');
+            const phone = phoneInput.value.trim();
+            if (!phone) {
+                alert("Digite um número de telefone válido!");
+                return;
+            }
+
+            // Verifica se a conversa já existe
+            const conversationList = document.getElementById('conversation-list');
+            const existingConversation = Array.from(conversationList.children).find(item => item.querySelector('.name').innerText === phone);
+            if (!existingConversation) {
+                // Cria uma nova conversa na lista
+                const newConversation = document.createElement('div');
+                newConversation.className = 'conversation-item';
+                newConversation.onclick = () => loadConversation(phone);
+                newConversation.innerHTML = `
+                    <div class="name">${phone}</div>
+                `;
+                conversationList.appendChild(newConversation);
+            }
+
+            // Carrega a conversa
+            loadConversation(phone);
+            phoneInput.value = ''; // Limpa o campo de entrada
+        }
+
+        // Função para verificar novas mensagens
+        function pollForNewMessages() {
+            if (currentPhone) {
+                fetch(`/conversation/${currentPhone}`)
+                    .then(response => response.json())
+                    .then(messages => {
+                        const messageArea = document.getElementById('message-area');
+                        messageArea.innerHTML = ''; // Limpa a área de mensagens
+                        messages.forEach(msg => {
+                            const messageDiv = document.createElement('div');
+                            messageDiv.className = `message ${msg.from}`;
+                            messageDiv.textContent = msg.text;
+                            messageArea.appendChild(messageDiv);
+                        });
+                    })
+                    .catch(error => {
+                        console.error("Erro ao buscar mensagens:", error);
+                    });
+            }
+        }
+
+        // Chama a função de polling a cada 5 segundos
+        setInterval(pollForNewMessages, 5000);
+    </script>
+</body>
+</html>
+<!-- FIM DO ARQUIVO: index.html -->
+
+/* INÍCIO DO ARQUIVO: styles.css (6/6) */
+/* Reset básico */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Estilo global */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+    display: flex;
+    height: 100vh;
+}
+
+/* Container principal */
+.container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+/* Coluna da esquerda (Lista de Conversas) */
+.left-column {
+    width: 25%; /* Menor largura */
+    background-color: #ffffff;
+    border-right: 1px solid #e0e0e0;
+    overflow-y: auto; /* Rolagem se necessário */
+    padding: 15px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+}
+
+/* Barra de busca */
+.search-bar input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.search-bar input:focus {
+    border-color: #007bff;
+}
+
+/* Lista de conversas */
+.conversation-list {
+    margin-top: 15px;
+}
+
+.conversation-item {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    margin-bottom: 5px;
+    border-radius: 8px;
+    cursor: pointer;
+    background-color: #fafafa;
+    transition: background-color 0.3s ease;
+}
+
+.conversation-item:hover {
+    background-color: #f0f0f0;
+}
+
+.conversation-item.active {
+    background-color: #e3f2fd; /* Destaca a conversa ativa */
+}
+
+.conversation-item .name {
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+
+.conversation-item .phone {
+    font-size: 12px;
+    color: #666;
+}
+
+/* Coluna da direita (Detalhes da Conversa) */
+.right-column {
+    width: 75%; /* Maior largura */
+    background-color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+}
+
+/* Área de exibição de mensagens */
+.message-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    background-color: #f9f9f9;
+}
+
+/* Mensagens */
+.message {
+    max-width: 70%;
+    padding: 10px 15px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.message.client {
+    background-color: #e3f2fd;
+    align-self: flex-start;
+    border: 1px solid #b3d4fc;
+}
+
+.message.seller {
+    background-color: #ffffff;
+    align-self: flex-end;
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Área de envio de mensagem */
+.input-area {
+    display: flex;
+    gap: 10px;
+}
+
+.input-area textarea {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.input-area textarea:focus {
+    border-color: #007bff;
+}
+
+.input-area button {
+    padding: 12px 20px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+.input-area button:hover {
+    background-color: #0056b3;
+}
+/* FIM DO ARQUIVO: styles.css */
+
+# FIM DO BACKUP - 2025-03-24 08:27:55

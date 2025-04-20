@@ -1,0 +1,1471 @@
+/* ================================================
+   RESET E ESTILOS GLOBAIS
+   ================================================ */
+   * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Estilo global do corpo do documento - define a fonte, cor e estrutura básica */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #b5fbff;
+    color: #333;
+    display: flex;
+    height: 100vh;
+    overflow: hidden; /* Previne scroll na página inteira */
+}
+
+/* ================================================
+   CONTAINER PRINCIPAL E LAYOUT
+   ================================================ */
+/* Container principal - organiza as três colunas em um layout flexível */
+.container {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ================================================
+   COLUNA ESQUERDA - LISTA DE CONVERSAS
+   ================================================ */
+.left-column {
+    width: 25%;
+    background-color: #ffffff;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width 0.3s ease; /* Animação para responsividade */
+}
+
+/* Barra de busca - permite filtrar conversas pelo nome ou número */
+.search-bar {
+    padding: 15px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.search-bar input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.search-bar input:focus {
+    border-color: #342b79;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1); /* Adiciona um sutil destaque ao focar */
+}
+
+/* Seção de nova conversa - permite iniciar uma conversa com um novo número */
+.new-conversation {
+    padding: 15px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.new-conversation input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+}
+
+.new-conversation button {
+    padding: 10px;
+    background-color: #342b79;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.new-conversation button:hover {
+    background-color: #363461;
+    transform: translateY(-1px); /* Leve elevação ao passar o mouse */
+}
+
+.new-conversation button:active {
+    transform: translateY(1px); /* Efeito de clique */
+}
+
+/* Lista de conversas - exibe todas as conversas disponíveis */
+.conversation-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    scrollbar-width: thin; /* Para Firefox */
+    scrollbar-color: #ddd #f5f5f5; /* Para Firefox */
+}
+
+/* Estiliza a scrollbar para navegadores WebKit (Chrome, Safari) */
+.conversation-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.conversation-list::-webkit-scrollbar-track {
+    background: #686868;
+}
+
+.conversation-list::-webkit-scrollbar-thumb {
+    background-color: #ddd;
+    border-radius: 6px;
+}
+
+/* Item individual de conversa */
+.conversation-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    margin-bottom: 5px;
+    border-radius: 8px;
+    cursor: pointer;
+    background-color: #fafafa;
+    transition: all 0.2s ease;
+}
+
+.conversation-item:hover {
+    background-color: #f0f0f0;
+    transform: translateX(2px); /* Leve movimento ao passar o mouse */
+}
+
+.conversation-item.active {
+    background-color: #e3f2fd;
+    border-left: 3px solid #342b79; /* Indicador lateral para item ativo */
+}
+
+/* Avatar da conversa - exibe imagem de perfil ou iniciais */
+.conversation-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: 12px;
+    background-color: #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0; /* Impede que o avatar diminua */
+}
+
+.conversation-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #342b79;
+    color: white;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+/* Informações da conversa - nome e número */
+.conversation-info {
+    flex: 1;
+    overflow: hidden;
+}
+
+.conversation-info .name {
+    font-weight: bold;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.conversation-info .phone {
+    font-size: 12px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Controle de modo da conversa (automático/humano) */
+.conversation-mode {
+    margin-left: 8px;
+}
+
+.mode-toggle {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.mode-toggle:hover {
+    transform: scale(1.1); /* Aumenta levemente ao passar o mouse */
+}
+
+.mode-toggle.human-mode {
+    background-color: #0bba68;
+    color: white;
+}
+
+.mode-toggle.auto-mode {
+    background-color: #6a7cad;
+    color: rgb(255, 255, 255);
+}
+
+/* ================================================
+   COLUNA CENTRAL - CONVERSA ATUAL
+   ================================================ */
+.center-column {
+    width: 50%;
+    background-color: #c2c2c2;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #e0e0e0;
+    position: relative;
+    transition: width 0.3s ease; /* Animação para responsividade */
+}
+
+/* ================================================
+   COLUNA DA DIREITA - VISÃO DA IA
+   ================================================ */
+.right-column {
+    width: 25%;
+    background-color: #612929;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width 0.3s ease; /* Animação para responsividade */
+}
+
+/* ================================================
+   CABEÇALHOS
+   ================================================ */
+/* Cabeçalho comum para todas as colunas */
+.header {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05); /* Sombra sutil para destaque */
+}
+
+/* Informações do contato no cabeçalho */
+.contact-info {
+    display: flex;
+    align-items: center;
+}
+
+.contact-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: 12px;
+    flex-shrink: 0; /* Impede que o avatar diminua */
+}
+
+.contact-name {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+/* Botões de ação na conversa (alternar modo) */
+.conversation-actions button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 8px;
+    background-color: #f0f0f0;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.3s ease;
+}
+
+.conversation-actions button:hover {
+    background-color: #e0e0e0;
+    transform: translateY(-1px); /* Leve elevação ao passar o mouse */
+}
+
+.conversation-actions button:active {
+    transform: translateY(1px); /* Efeito de clique */
+}
+
+.conversation-actions button.human-mode {
+    background-color: #f6f6f6;
+    color: #0bba68;
+}
+
+.conversation-actions button.auto-mode {
+    background-color: #f7f7f7;
+    color: #5c4eb7;
+}
+
+/* Título na área de IA */
+.ai-title {
+    font-weight: bold;
+    font-size: 16px;
+    color: #333;
+}
+
+/* ================================================
+   ÁREAS DE MENSAGENS
+   ================================================ */
+/* Áreas de exibição de mensagens */
+.message-area, .ai-message-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    background-color: #f7f7f7;
+    display: flex;
+    flex-direction: column;
+    scrollbar-width: thin; /* Para Firefox */
+    scrollbar-color: #ddd #f7f7f7; /* Para Firefox */
+}
+
+/* Estiliza a scrollbar para navegadores WebKit (Chrome, Safari) */
+.message-area::-webkit-scrollbar,
+.ai-message-area::-webkit-scrollbar {
+    width: 6px;
+}
+
+.message-area::-webkit-scrollbar-track,
+.ai-message-area::-webkit-scrollbar-track {
+    background: #f7f7f7;
+}
+
+.message-area::-webkit-scrollbar-thumb,
+.ai-message-area::-webkit-scrollbar-thumb {
+    background-color: #ddd;
+    border-radius: 6px;
+}
+
+/* Estado vazio (quando não há mensagens) */
+.empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #888;
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+}
+
+/* ================================================
+   MENSAGENS
+   ================================================ */
+/* Estilo base para todas as mensagens */
+.message {
+    max-width: 70%;
+    padding: 10px 15px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 1.4;
+    position: relative;
+    word-wrap: break-word;
+    animation: fadeIn 0.3s ease; /* Animação de aparecimento */
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Mensagens do cliente (balões verdes à direita) */
+.message.cliente {
+    align-self: flex-end;
+    background-color: #dbfde3;
+    margin-left: auto;
+    border-bottom-right-radius: 4px; /* Ajuste para forma de balão */
+}
+
+/* Mensagens do vendedor/IA (balões brancos à esquerda) */
+.message.vendedor, .message.qwen, .message.deepseek {
+    align-self: flex-start;
+    background-color: rgb(255, 255, 255);
+    margin-right: auto;
+    box-shadow: 0 1px 2px rgba(23, 255, 193, 0.1);
+    border-bottom-left-radius: 4px; /* Ajuste para forma de balão */
+}
+
+/* Personalização para mensagens do vendedor */
+.message.vendedor {
+    border-left: 5px solid #0bba68;
+}
+
+/* Personalização para mensagens da IA */
+.message.qwen, .message.deepseek {
+    border-left: 5px solid #5c51a0;
+}
+
+/* Conteúdo das mensagens - texto principal */
+.message-text {
+    margin-bottom: 7px;
+}
+
+/* Timestamp das mensagens */
+.message-time {
+    font-size: 11px;
+    color: #999;
+    text-align: right;
+    margin-top: 5px;
+}
+
+/* ================================================
+   MÍDIA NAS MENSAGENS
+   ================================================ */
+/* Container para mídia em mensagens */
+.message-media {
+    max-width: 100%;
+    margin-bottom: 8px;
+}
+
+/* Imagens em mensagens */
+.message-media img {
+    max-width: 100%;
+    border-radius: 8px;
+    cursor: pointer; /* Indica que pode ser clicada para ampliar */
+    transition: transform 0.3s ease;
+}
+
+.message-media img:hover {
+    transform: scale(1.02); /* Leve aumento ao passar o mouse */
+}
+
+/* Vídeos e áudios em mensagens */
+.message-media video, .message-media audio {
+    max-width: 100%;
+    border-radius: 4px;
+}
+
+/* Legendas para mídia */
+.message-caption {
+    font-size: 13px;
+    margin-top: 4px;
+    color: #444;
+}
+
+/* Estilo para documentos */
+.message-document {
+    display: flex;
+    align-items: center;
+    background-color: rgba(0,0,0,0.05);
+    padding: 8px;
+    border-radius: 5px;
+    margin-bottom: 6px;
+    transition: background-color 0.3s ease;
+}
+
+.message-document:hover {
+    background-color: rgba(0,0,0,0.08);
+}
+
+/* Links para documentos */
+.document-link {
+    display: flex;
+    align-items: center;
+    color: #342b79;
+    text-decoration: none;
+    font-size: 13px;
+    width: 100%;
+}
+
+.document-link i {
+    margin-right: 6px;
+    font-size: 20px;
+}
+
+/* ================================================
+   ÁREA DE ENTRADA DE MENSAGEM
+   ================================================ */
+.input-area {
+    padding: 10px 15px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #fff;
+}
+
+/* Botões de mídia (imagem, áudio, vídeo, documento) */
+.media-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.media-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background-color: #f0f0f0;
+    color: #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.media-btn:hover {
+    background-color: #e0e0e0;
+    transform: translateY(-1px); /* Leve elevação */
+}
+
+.media-btn:active {
+    transform: translateY(1px); /* Efeito de clique */
+}
+
+/* Campo de texto para mensagem */
+.input-area textarea {
+    flex: 1;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    font-size: 14px;
+    resize: none;
+    height: 40px;
+    max-height: 120px;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.input-area textarea:focus {
+    border-color: #1d1b5f;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1); /* Leve destaque ao focar */
+}
+
+/* Botão de enviar mensagem */
+.input-area button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background-color: #342b79;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.input-area button:hover {
+    background-color: #428191;
+    transform: translateY(-1px); /* Leve elevação */
+}
+
+.input-area button:active {
+    transform: translateY(1px); /* Efeito de clique */
+}
+
+.input-area button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* ================================================
+   MODAL DE UPLOAD DE MÍDIA
+   ================================================ */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    overflow: auto;
+    animation: fadeIn 0.3s ease;
+}
+
+/* Conteúdo do modal */
+.modal-content {
+    background-color: #fff;
+    margin: 10% auto;
+    padding: 20px;
+    border-radius: 10px;
+    width: 50%;
+    max-width: 500px;
+    position: relative;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Botão de fechar o modal */
+.close {
+    position: absolute;
+    right: 15px;
+    top: 10px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.close:hover {
+    color: #555;
+}
+
+/* Formulário de upload de mídia */
+#media-upload-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+/* Entrada de arquivo */
+#media-file {
+    border: 1px dashed #ccc;
+    padding: 20px;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.3s ease;
+}
+
+#media-file:hover {
+    border-color: #007bff;
+}
+
+/* Campo de legenda para mídia */
+#media-caption {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    resize: none;
+    height: 80px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+#media-caption:focus {
+    border-color: #1d1b5f;
+}
+
+/* Botão de envio no modal */
+#media-upload-form button {
+    padding: 10px;
+    background-color: #1d1b5f;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+#media-upload-form button:hover {
+    background-color: #524fa3;
+}
+
+#media-upload-form button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* ================================================
+   RESPONSIVIDADE
+   ================================================ */
+@media (max-width: 1024px) {
+    .left-column {
+        width: 30%;
+    }
+    
+    .center-column {
+        width: 70%;
+    }
+    
+    .right-column {
+        display: none; /* Oculta coluna direita em telas médias */
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+    }
+    
+    .left-column, .center-column {
+        width: 100%;
+        height: auto;
+    }
+    
+    .left-column {
+        height: 30vh;
+    }
+    
+    .center-column {
+        height: 70vh;
+    }
+    
+    .right-column {
+        display: none; /* Oculta a coluna direita em telas pequenas */
+    }
+    
+    .modal-content {
+        width: 90%;
+    }
+}
+
+/* Correções para telas muito pequenas */
+@media (max-width: 480px) {
+    .new-conversation {
+        flex-direction: column;
+    }
+    
+    .input-area {
+        flex-wrap: wrap;
+    }
+    
+    .media-buttons {
+        width: 100%;
+        justify-content: space-between;
+        margin-bottom: 8px;
+    }
+}
+
+/* Botões de ação nas conversas (deletar, arquivar) */
+.conversation-actions-hover {
+    display: none;
+    position: absolute;
+    right: 45px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.conversation-item:hover .conversation-actions-hover {
+    display: flex;
+    opacity: 1;
+}
+
+.action-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background-color: transparent;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-left: 5px;
+}
+
+.action-btn:hover {
+    background-color: rgba(0,0,0,0.1);
+    transform: scale(1.1);
+}
+
+.delete-btn:hover {
+    color: #b83e3a;
+}
+
+.archive-btn:hover {
+    color: #0bba13;
+}
+
+/* Menu de opções nas mensagens */
+.message-options {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.message:hover .message-options {
+    opacity: 1;
+}
+
+.options-btn {
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    color: #888;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.options-btn:hover {
+    background-color: rgba(0,0,0,0.1);
+}
+
+.options-menu {
+    position: absolute;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    z-index: 1000;
+    width: 150px;
+    animation: fadeIn 0.2s ease;
+}
+
+.option {
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+}
+
+.option i {
+    margin-right: 10px;
+    width: 16px;
+}
+
+.option:hover {
+    background-color: #f5f5f5;
+}
+
+.option.delete {
+    color: #b83e3a;
+}
+
+.option.delete:hover {
+    background-color: #ffebee;
+}
+
+/* Modais de perfil e zoom de imagem */
+.profile-modal .modal-content {
+    width: 350px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.profile-header {
+    text-align: center;
+    padding: 20px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.profile-image {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 15px;
+    border-radius: 50%;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.profile-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-placeholder.large {
+    width: 100%;
+    height: 100%;
+    font-size: 40px;
+    background-color: #342b79;
+}
+
+.profile-about {
+    font-size: 14px;
+    color: #666;
+    margin-top: 10px;
+}
+
+.profile-info {
+    padding: 15px;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.info-item i {
+    margin-right: 10px;
+    width: 20px;
+    color: #666;
+}
+
+.toggle-switch {
+    margin-left: auto;
+}
+
+.danger-zone {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.danger-btn, .block-btn {
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s ease;
+}
+
+.danger-btn {
+    background-color: #ffebee;
+    color: #b83e3a;
+}
+
+.danger-btn:hover {
+    background-color: #b83e3a;
+    color: white;
+}
+
+.block-btn {
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.block-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.image-zoom-modal {
+    background-color: rgba(0,0,0,0.9);
+}
+
+.zoom-container {
+    width: 80%;
+    height: 80%;
+    margin: 5% auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.zoom-container img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+.zoom-container .close {
+    color: white;
+    top: -30px;
+}
+
+.zoom-controls {
+    position: absolute;
+    bottom: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 20px;
+}
+
+.zoom-controls button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+.zoom-controls button:hover {
+    background-color: rgba(255,255,255,0.3);
+    transform: scale(1.1);
+}
+
+/* Comandos rápidos */
+.command-menu {
+    position: absolute;
+    bottom: 60px;
+    left: 15px;
+    width: 300px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+    animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.menu-header {
+    padding: 10px 15px;
+    font-weight: bold;
+    border-bottom: 1px solid #eee;
+    color: #666;
+    font-size: 13px;
+}
+
+.command-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid #f5f5f5;
+    transition: background-color 0.2s ease;
+}
+
+.command-item:hover {
+    background-color: #f5f5f5;
+}
+
+.command-name {
+    font-weight: bold;
+    font-size: 14px;
+    color: #342b79;
+}
+
+.command-description {
+    font-size: 12px;
+    color: #666;
+    margin-top: 3px;
+}
+
+/* Localizações */
+.message-location {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.message-location img {
+    width: 100%;
+    max-width: 300px;
+    cursor: pointer;
+}
+
+.location-caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    padding: 8px 12px;
+    font-size: 12px;
+}
+
+.location-caption i {
+    margin-right: 5px;
+    color: #b83e3a;
+}
+
+/* Mensagens temporárias e apagadas */
+.temp-message {
+    opacity: 0.7;
+}
+
+.deleted-message {
+    font-style: italic;
+    color: #999;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.deleted-message i {
+    font-size: 14px;
+}
+
+.message.deleted {
+    animation: fadeOut 0.3s ease;
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0.5; }
+}
+
+/* Notificações */
+.notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 15px;
+    background-color: #342b79;
+    color: white;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    z-index: 9999;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.notification.fade-out {
+    animation: fadeOut 0.5s ease;
+}
+
+/* Destaque para botão de enviar quando há comandos */
+#send-button.highlight {
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); background-color: #342b79; }
+    50% { transform: scale(1.1); background-color: #524fa3; }
+    100% { transform: scale(1); background-color: #342b79; }
+}
+
+/* Estilos para o gravador de áudio */
+.audio-recorder {
+    max-width: 400px;
+    padding: 20px;
+}
+
+.audio-visualizer-container {
+    background-color: #f5f5f5;
+    border-radius: 10px;
+    padding: 10px;
+    margin: 15px 0;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+#audio-visualizer {
+    width: 100%;
+    height: 60px;
+    background-color: #f5f5f5;
+}
+
+.recording-timer {
+    font-size: 28px;
+    text-align: center;
+    margin: 15px 0;
+    font-weight: bold;
+    color: #128C7E;
+}
+
+.audio-controls {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.recording-btn {
+    background-color: #128C7E;
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 160px;
+    transition: all 0.3s ease;
+}
+
+#start-recording-btn {
+    background-color: #128C7E;
+}
+
+#stop-recording-btn {
+    background-color: #e74c3c;
+}
+
+.recording-btn:hover {
+    opacity: 0.9;
+    transform: scale(1.05);
+}
+
+.cancel-btn {
+    background-color: #95a5a6;
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 160px;
+    transition: all 0.3s ease;
+}
+
+.cancel-btn:hover {
+    background-color: #7f8c8d;
+}
+
+.audio-preview {
+    margin: 20px 0;
+    border-radius: 10px;
+    padding: 15px;
+    background-color: #f5f5f5;
+}
+
+.audio-preview audio {
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.preview-controls {
+    display: flex;
+    justify-content: space-between;
+}
+
+.preview-controls button {
+    background-color: #128C7E;
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 8px 15px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.3s ease;
+}
+
+.preview-controls button:first-child {
+    background-color: #95a5a6;
+}
+
+.preview-controls button:hover {
+    opacity: 0.9;
+}
+
+.upload-option {
+    margin-top: 20px;
+    text-align: center;
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+}
+
+.upload-option p {
+    margin-bottom: 10px;
+    color: #666;
+    font-size: 14px;
+}
+
+.upload-option button {
+    background-color: #f1f1f1;
+    color: #555;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 8px 15px;
+    font-size: 14px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.3s ease;
+}
+
+.upload-option button:hover {
+    background-color: #e1e1e1;
+}
+
+/* Estilos para o indicador de gravação ativa */
+.recording-active .media-btn[onclick*="audio"] {
+    background-color: #e74c3c;
+    color: white;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(231, 76, 60, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
+    }
+}
+
+/* Estilos para indicador de carregamento */
+.loading {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+.loading:after {
+    content: "...";
+    animation: dots 1.5s steps(5, end) infinite;
+}
+
+@keyframes dots {
+    0%, 20% {
+        content: ".";
+    }
+    40% {
+        content: "..";
+    }
+    60% {
+        content: "...";
+    }
+    80%, 100% {
+        content: "";
+    }
+}
+
+/* Modificação para o botão de áudio */
+.media-btn[onclick*="audio"] {
+    position: relative;
+}
+
+.media-btn[onclick*="audio"]:hover:after {
+    content: "Gravar Áudio";
+    position: absolute;
+    bottom: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+}
+
+/* Indicador de novas mensagens */
+.new-message-dot {
+    width: 12px;
+    height: 12px;
+    background-color: #25D366;
+    border-radius: 50%;
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    animation: pulse 1.5s infinite;
+}
+
+.has-new-messages {
+    background-color: rgba(37, 211, 102, 0.1);
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(37, 211, 102, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
+    }
+}
+
+/* Notificações */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    background: #fff;
+    color: #333;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    z-index: 1000;
+    opacity: 1;
+    transition: opacity 0.3s;
+    max-width: 300px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+}
+
+.notification.success {
+    background: #e7f7ed;
+    color: #28a745;
+}
+
+.notification.error {
+    background: #f8eaea;
+    color: #dc3545;
+}
+
+.notification.warning {
+    background: #fff9e6;
+    color: #ffc107;
+}
+
+.notification i {
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+.notification.fade-out {
+    opacity: 0;
+}
+
+/* Elementos não lidos */
+.conversation-item.unread::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 15px;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    background-color: #25D366;
+    border-radius: 50%;
+}
+
+.conversation-item.unread .name {
+    font-weight: bold;
+}

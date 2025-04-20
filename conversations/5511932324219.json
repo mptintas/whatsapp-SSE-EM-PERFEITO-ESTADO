@@ -1,0 +1,115 @@
+{
+    "name": "MP Tintas Epóxi",
+    "profile_pic": "",
+    "mode": "auto",
+    "messages": [
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "09:46 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi! Qual é o seu nome? Assim posso te ajudar melhor. 😊",
+            "from": "qwen",
+            "timestamp": "09:46 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Bom dia!",
+            "from": "cliente",
+            "timestamp": "09:46 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Bom dia! Qual é o seu nome? Assim posso te ajudar melhor. 😊",
+            "from": "qwen",
+            "timestamp": "09:46 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "mp, tudo bom?",
+            "from": "vendedor",
+            "timestamp": "19:10 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "opa! tudo bain!",
+            "from": "cliente",
+            "timestamp": "19:10 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde!",
+            "from": "cliente",
+            "timestamp": "13:08 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde! Como gostaria de ser chamado(a)? Assim posso atendê-lo(a) de forma mais personalizada.",
+            "from": "qwen",
+            "timestamp": "13:08 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Pode me chamar de André",
+            "from": "cliente",
+            "timestamp": "13:08 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "13:08 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "vocês tem um catálogo de cores?",
+            "from": "cliente",
+            "timestamp": "13:09 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sim, Sr. André, temos um catálogo de cores disponível. Você pode conferir todas as opções em: [Catálogo de Cores MP Tintas Epóxi](https://tintaepoxi.com/catalogo-de-cores/). \n\nAlém disso, trabalhamos com o sistema RAL para cores específicas, caso precise. Lembrando que as cores podem variar ligeiramente dependendo do substrato e da iluminação. Se precisar de ajuda para escolher, é só perguntar!",
+            "from": "qwen",
+            "timestamp": "13:09 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa taredf!",
+            "from": "cliente",
+            "timestamp": "13:12 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "13:12 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "oi!",
+            "from": "cliente",
+            "timestamp": "13:13 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde!",
+            "from": "cliente",
+            "timestamp": "13:13 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde!",
+            "from": "cliente",
+            "timestamp": "16:40 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "16:40 27/03/25"
+        }
+    ]
+}

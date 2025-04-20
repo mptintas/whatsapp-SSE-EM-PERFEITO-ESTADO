@@ -1,0 +1,2106 @@
+# BACKUP CRIADO EM: 2025-03-24 11:58:22
+# Total de arquivos: 12
+
+# INÍCIO DO ARQUIVO: Webhook_Server.py (1/12) 
+from flask import Flask, request, jsonify, render_template
+
+class WebhookServer:
+    def __init__(self, whatsapp_manager):
+        self.app = Flask(__name__)
+        self.whatsapp_manager = whatsapp_manager
+        self.setup_routes()
+
+    def setup_routes(self):
+        @self.app.route('/')
+        def index():
+            conversations = self.whatsapp_manager.conversations
+            return render_template('index.html', conversations=conversations)
+
+        @self.app.route('/webhook', methods=['GET'])
+        def verify_webhook():
+            mode = request.args.get("hub.mode")
+            token = request.args.get("hub.verify_token")
+            challenge = request.args.get("hub.challenge")
+
+            if mode and token == self.whatsapp_manager.VERIFICATION_TOKEN:
+                print("Webhook verificado com sucesso!")
+                return challenge, 200
+            else:
+                print("Token inválido!")
+                return "Token inválido", 403
+
+        @self.app.route('/webhook', methods=['POST'])
+        def webhook():
+            try:
+                data = request.json
+                print(f"Mensagem recebida via webhook: {data}")
+                self.whatsapp_manager.handle_incoming_message(data)
+                return jsonify({"status": "ok"}), 200
+            except Exception as e:
+                print(f"Erro ao processar mensagem do webhook: {str(e)}")
+                return jsonify({"status": "error", "message": str(e)}), 500
+
+    def run(self, port=5000):
+        print(f"Iniciando servidor webhook na porta {port}...")
+        self.app.run(port=port)
+# FIM DO ARQUIVO: Webhook_Server.py 
+
+# INÍCIO DO ARQUIVO: WhatsApp_Manager.py (2/12) 
+import requests
+import os
+import json
+from datetime import datetime
+from qwen1 import process_message
+from media_handler import MediaHandler
+
+class WhatsAppManager:
+    def __init__(self):
+        self.VERIFICATION_TOKEN = "EAAJjZBmxpkYgBOyEx31oz53K3694dZCg81dZA17ym3W9rCFjmax29HMwcdgq8iZBawUoNw1vzTlYSGAbIWTN4MRkWZBA0wMpwfLfI6dHaaMyhUZC1qZADUbZBZCNMhOw8a0AI2sBHpBLtbEbMrhBGZBNh81teK7z0ZBX338LZBTHRXYr96YTytPiv1JRD5Vyiis5pl5yhpUHzjHDhgZDZD"
+        self.WHATSAPP_TOKEN = "EAAJjZBmxpkYgBOyEx31oz53K3694dZCg81dZA17ym3W9rCFjmax29HMwcdgq8iZBawUoNw1vzTlYSGAbIWTN4MRkWZBA0wMpwfLfI6dHaaMyhUZC1qZADUbZBZCNMhOw8a0AI2sBHpBLtbEbMrhBGZBNh81teK7z0ZBX338LZBTHRXYr96YTytPiv1JRD5Vyiis5pl5yhpUHzjHDhgZDZD"
+        self.PHONE_NUMBER_ID = "637338086121702"
+        self.conversations = {}
+        self.CONVERSATION_DIR = "conversations"
+        self.media_handler = MediaHandler()
+        
+        if not os.path.exists(self.CONVERSATION_DIR):
+            os.makedirs(self.CONVERSATION_DIR)
+        self.load_conversations()
+
+    def load_conversations(self):
+        if not os.path.exists(self.CONVERSATION_DIR):
+            os.makedirs(self.CONVERSATION_DIR)
+            print("Diretório de conversas criado.")
+            return
+            
+        try:
+            for filename in os.listdir(self.CONVERSATION_DIR):
+                if filename.endswith('.json'):
+                    phone_number = filename.split(".")[0]
+                    filepath = os.path.join(self.CONVERSATION_DIR, filename)
+                    try:
+                        with open(filepath, "r", encoding='utf-8') as file:
+                            data = json.load(file)
+                            
+                            # Converte formato antigo para novo formato se necessário
+                            if "messages" in data and isinstance(data["messages"], list):
+                                self.conversations[phone_number] = {
+                                    "name": data.get("name", "Cliente"),
+                                    "profile_pic": data.get("profile_pic", ""),
+                                    "mode": data.get("mode", "auto"),
+                                    "messages": []
+                                }
+                                
+                                for msg in data["messages"]:
+                                    if "text" in msg and "type" not in msg:
+                                        self.conversations[phone_number]["messages"].append({
+                                            "type": "text",
+                                            "content": msg["text"],
+                                            "from": msg["from"],
+                                            "timestamp": msg.get("timestamp", datetime.now().strftime("%H:%M %d/%m/%y"))
+                                        })
+                                    else:
+                                        self.conversations[phone_number]["messages"].append(msg)
+                            else:
+                                self.conversations[phone_number] = data
+                            
+                            if "mode" not in self.conversations[phone_number]:
+                                self.conversations[phone_number]["mode"] = "auto"
+                    except Exception as e:
+                        print(f"Erro ao carregar arquivo {filepath}: {str(e)}")
+                        continue
+                        
+            print(f"{len(self.conversations)} conversas carregadas.")
+        except Exception as e:
+            print(f"Erro ao carregar conversas: {str(e)}")
+
+    def save_conversation(self, phone_number):
+        try:
+            if not os.path.exists(self.CONVERSATION_DIR):
+                os.makedirs(self.CONVERSATION_DIR)
+                
+            filepath = os.path.join(self.CONVERSATION_DIR, f"{phone_number}.json")
+            with open(filepath, "w", encoding='utf-8') as file:
+                json.dump(self.conversations.get(phone_number, {}), file, indent=4, ensure_ascii=False)
+            print(f"Conversa com {phone_number} salva.")
+        except Exception as e:
+            print(f"Erro ao salvar conversa: {str(e)}")
+
+    def handle_incoming_message(self, data):
+        try:
+            print(f"Dados recebidos via webhook: {data}")
+            if "messages" in data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}):
+                phone_number = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("wa_id", "")
+                client_name = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("profile", {}).get("name", "Desconhecido")
+                
+                if phone_number not in self.conversations:
+                    self.conversations[phone_number] = {
+                        "name": client_name,
+                        "profile_pic": "",
+                        "mode": "auto",
+                        "messages": []
+                    }
+                
+                message = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("messages", [{}])[0]
+                
+                profile_pic = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("profile", {}).get("profile_picture", "")
+                if profile_pic:
+                    self.conversations[phone_number]["profile_pic"] = profile_pic
+                
+                message_type = message.get("type", "")
+                message_content = None
+                media_url = None
+                
+                if message_type == "text":
+                    message_content = message.get("text", {}).get("body", "")
+                    media_url = None
+                    message_obj = {
+                        "type": "text",
+                        "content": message_content,
+                        "from": "cliente",
+                        "timestamp": datetime.now().strftime("%H:%M %d/%m/%y")
+                    }
+                    
+                elif message_type in ["image", "audio", "video", "document"]:
+                    media_id = message.get(message_type, {}).get("id", "")
+                    media_url = self.media_handler.download_media(media_id, self.WHATSAPP_TOKEN)
+                    caption = message.get(message_type, {}).get("caption", "")
+                    
+                    message_obj = {
+                        "type": message_type,
+                        "content": caption,
+                        "media_url": media_url,
+                        "from": "cliente",
+                        "timestamp": datetime.now().strftime("%H:%M %d/%m/%y")
+                    }
+                else:
+                    print(f"Tipo de mensagem desconhecido: {message_type}")
+                    return
+                
+                self.conversations[phone_number]["messages"].append(message_obj)
+                self.save_conversation(phone_number)
+                
+                print(f"Mensagem do cliente {client_name} ({phone_number}) recebida: Tipo={message_type}")
+                
+                if self.conversations[phone_number]["mode"] == "auto":
+                    resposta_qwen = None
+                    if message_type == "text":
+                        resposta_qwen = process_message(message_content, phone_number)
+                    else:
+                        media_desc = f"[Cliente enviou {message_type}]"
+                        if caption:
+                            media_desc += f" com a legenda: '{caption}'"
+                        resposta_qwen = process_message(media_desc, phone_number)
+                    
+                    if resposta_qwen:
+                        self.send_message_to_whatsapp(phone_number, resposta_qwen)
+
+        except Exception as e:
+            print(f"Erro ao processar mensagem: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def send_message_to_whatsapp(self, to_number, message, media_type=None, media_path=None):
+        try:
+            url = f"https://graph.facebook.com/v16.0/{self.PHONE_NUMBER_ID}/messages"
+            headers = {
+                "Authorization": f"Bearer {self.WHATSAPP_TOKEN}",
+                "Content-Type": "application/json"
+            }
+            
+            if media_type is None:
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": to_number,
+                    "type": "text",
+                    "text": {
+                        "body": message
+                    }
+                }
+            else:
+                media_id = self.media_handler.upload_media(media_path, self.WHATSAPP_TOKEN)
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": to_number,
+                    "type": media_type,
+                    media_type: {
+                        "id": media_id,
+                        "caption": message
+                    }
+                }
+            
+            response = requests.post(url, json=payload, headers=headers)
+            if response.status_code == 200:
+                print(f"Mensagem enviada com sucesso para {to_number}")
+                
+                timestamp = datetime.now().strftime("%H:%M %d/%m/%y")
+                if to_number not in self.conversations:
+                    self.conversations[to_number] = {
+                        "name": "Desconhecido",
+                        "profile_pic": "",
+                        "mode": "auto",
+                        "messages": []
+                    }
+                
+                sender = "qwen" if self.conversations[to_number]["mode"] == "auto" else "vendedor"
+                
+                if media_type is None:
+                    self.conversations[to_number]["messages"].append({
+                        "type": "text",
+                        "content": message,
+                        "from": sender,
+                        "timestamp": timestamp
+                    })
+                else:
+                    self.conversations[to_number]["messages"].append({
+                        "type": media_type,
+                        "content": message,
+                        "media_url": media_path,
+                        "from": sender,
+                        "timestamp": timestamp
+                    })
+                
+                self.save_conversation(to_number)
+                return True
+            else:
+                print(f"Falha ao enviar mensagem para {to_number}: {response.text}")
+                return False
+        except Exception as e:
+            print(f"Erro ao enviar mensagem: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def get_conversation_history(self, phone_number):
+        return self.conversations.get(phone_number, {})
+    
+    def toggle_conversation_mode(self, phone_number):
+        if phone_number in self.conversations:
+            current_mode = self.conversations[phone_number].get("mode", "auto")
+            new_mode = "human" if current_mode == "auto" else "auto"
+            self.conversations[phone_number]["mode"] = new_mode
+            self.save_conversation(phone_number)
+            print(f"Modo da conversa com {phone_number} alterado para: {new_mode}")
+            return new_mode
+        print(f"Tentativa de alternar modo para número inexistente: {phone_number}")
+        return None
+# FIM DO ARQUIVO: WhatsApp_Manager.py 
+
+# INÍCIO DO ARQUIVO: main.py (3/12) 
+from WhatsApp_Manager import WhatsAppManager
+from flask import Flask, render_template, request, jsonify, send_from_directory
+import os
+import logging
+
+# Configuração de logging
+logging.basicConfig(level=logging.INFO, 
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    handlers=[logging.FileHandler("app.log"), logging.StreamHandler()])
+logger = logging.getLogger(__name__)
+
+app = Flask(__name__, template_folder="templates", static_folder="static")
+
+# Inicializa o gerenciador do WhatsApp
+whatsapp_manager = WhatsAppManager()
+
+# Rota para servir arquivos de mídia
+@app.route('/media/<path:filename>')
+def serve_media(filename):
+    try:
+        logger.info(f"Solicitação de mídia: {filename}")
+        # Determina o tipo de mídia com base no caminho
+        if filename.startswith('images/'):
+            return send_from_directory('media', filename)
+        elif filename.startswith('audio/'):
+            return send_from_directory('media', filename)
+        elif filename.startswith('video/'):
+            return send_from_directory('media', filename)
+        elif filename.startswith('documents/'):
+            return send_from_directory('media', filename)
+        else:
+            logger.warning(f"Tipo de mídia não suportado: {filename}")
+            return "Arquivo não encontrado", 404
+    except Exception as e:
+        logger.error(f"Erro ao servir mídia {filename}: {str(e)}")
+        return "Erro ao servir mídia", 500
+
+@app.route('/')
+def index():
+    try:
+        # Renderiza a página inicial com as conversas existentes
+        conversations = whatsapp_manager.conversations
+        logger.info(f"Página inicial carregada com {len(conversations)} conversas")
+        return render_template('index.html', conversations=conversations)
+    except Exception as e:
+        logger.error(f"Erro na página inicial: {str(e)}")
+        return "Erro ao carregar a página", 500
+
+@app.route('/conversation/<phone_number>')
+def get_conversation(phone_number):
+    try:
+        # Retorna o histórico de mensagens de um número específico
+        conversation = whatsapp_manager.get_conversation_history(phone_number)
+        logger.info(f"Conversa solicitada: {phone_number}")
+        return jsonify(conversation)
+    except Exception as e:
+        logger.error(f"Erro ao obter conversa {phone_number}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/send_message', methods=['POST'])
+def send_message():
+    try:
+        # Envia uma mensagem para um número via API do WhatsApp
+        data = request.json
+        to_number = data.get("to_number")
+        message = data.get("message")
+        media_path = data.get("media_path")
+        media_type = data.get("media_type")
+        
+        logger.info(f"Enviando mensagem para {to_number}. Mídia: {media_type if media_type else 'Nenhuma'}")
+        
+        if media_path and media_type:
+            success = whatsapp_manager.send_message_to_whatsapp(to_number, message, media_type, media_path)
+        else:
+            success = whatsapp_manager.send_message_to_whatsapp(to_number, message)
+            
+        if success:
+            logger.info(f"Mensagem enviada com sucesso para {to_number}")
+            return jsonify({"status": "success"}), 200
+        else:
+            logger.warning(f"Falha ao enviar mensagem para {to_number}")
+            return jsonify({"status": "error"}), 500
+    except Exception as e:
+        logger.error(f"Erro ao enviar mensagem: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/toggle_mode/<phone_number>', methods=['POST'])
+def toggle_conversation_mode(phone_number):
+    try:
+        # Alterna o modo da conversa entre automático e humano
+        new_mode = whatsapp_manager.toggle_conversation_mode(phone_number)
+        if new_mode:
+            logger.info(f"Modo de conversa alterado para {phone_number}: {new_mode}")
+            return jsonify({"status": "success", "mode": new_mode}), 200
+        else:
+            logger.warning(f"Conversa não encontrada para alternar modo: {phone_number}")
+            return jsonify({"status": "error", "message": "Conversa não encontrada"}), 404
+    except Exception as e:
+        logger.error(f"Erro ao alternar modo de conversa: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/upload_media', methods=['POST'])
+def upload_media():
+    try:
+        # Endpoint para fazer upload de mídia do cliente
+        if 'file' not in request.files:
+            logger.warning("Tentativa de upload sem arquivo")
+            return jsonify({"status": "error", "message": "Nenhum arquivo enviado"}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            logger.warning("Nome de arquivo vazio no upload")
+            return jsonify({"status": "error", "message": "Nome de arquivo vazio"}), 400
+        
+        # Determinar o tipo de mídia
+        if file.content_type.startswith('image/'):
+            media_type = 'images'
+        elif file.content_type.startswith('audio/'):
+            media_type = 'audio'
+        elif file.content_type.startswith('video/'):
+            media_type = 'video'
+        else:
+            media_type = 'documents'
+        
+        # Salvar o arquivo
+        filename = f"{file.filename}"
+        media_dir = os.path.join('media', media_type)
+        
+        # Garantir que o diretório existe
+        if not os.path.exists(media_dir):
+            os.makedirs(media_dir)
+            
+        filepath = os.path.join(media_dir, filename)
+        file.save(filepath)
+        
+        relative_path = os.path.join(media_type, filename)
+        logger.info(f"Mídia carregada: {relative_path}")
+        
+        return jsonify({
+            "status": "success", 
+            "media_path": relative_path, 
+            "media_type": media_type.rstrip('s')  # Remove o 's' para corresponder ao tipo da API
+        }), 200
+    except Exception as e:
+        logger.error(f"Erro no upload de mídia: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/webhook', methods=['GET'])
+def verify_webhook():
+    try:
+        # Verifica o webhook da Meta
+        mode = request.args.get("hub.mode")
+        token = request.args.get("hub.verify_token")
+        challenge = request.args.get("hub.challenge")
+
+        if mode and token == whatsapp_manager.VERIFICATION_TOKEN:
+            logger.info("Webhook verificado com sucesso!")
+            return challenge, 200
+        else:
+            logger.warning("Verificação de webhook falhou: token inválido")
+            return "Token inválido", 403
+    except Exception as e:
+        logger.error(f"Erro na verificação do webhook: {str(e)}")
+        return "Erro na verificação", 500
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    # Processa mensagens recebidas via webhook
+    try:
+        data = request.json
+        logger.info("Mensagem recebida via webhook")
+        whatsapp_manager.handle_incoming_message(data)
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        logger.error(f"Erro ao processar mensagem do webhook: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.after_request
+def add_header(response):
+    # Adiciona cabeçalhos para evitar cache
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+if __name__ == "__main__":
+    logger.info("Iniciando servidor Flask na porta 5000...")
+    app.run(port=5000, debug=True)
+# FIM DO ARQUIVO: main.py 
+
+# INÍCIO DO ARQUIVO: media_handler.py (4/12) 
+import os
+import requests
+import mimetypes
+from datetime import datetime
+
+class MediaHandler:
+    def __init__(self):
+        self.MEDIA_DIR = "media"
+        if not os.path.exists(self.MEDIA_DIR):
+            os.makedirs(self.MEDIA_DIR)
+            os.makedirs(os.path.join(self.MEDIA_DIR, "images"))
+            os.makedirs(os.path.join(self.MEDIA_DIR, "audio"))
+            os.makedirs(os.path.join(self.MEDIA_DIR, "video"))
+            os.makedirs(os.path.join(self.MEDIA_DIR, "documents"))
+    
+    def download_media(self, media_id, whatsapp_token):
+        try:
+            url = f"https://graph.facebook.com/v16.0/{media_id}"
+            headers = {
+                "Authorization": f"Bearer {whatsapp_token}"
+            }
+            
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                print(f"Erro ao obter URL da mídia: {response.text}")
+                return None
+            
+            media_data = response.json()
+            media_url = media_data.get("url")
+            mime_type = media_data.get("mime_type", "application/octet-stream")
+            
+            response = requests.get(media_url, headers=headers)
+            if response.status_code != 200:
+                print(f"Erro ao baixar mídia: {response.status_code}")
+                return None
+            
+            extension = mimetypes.guess_extension(mime_type) or ""
+            media_type = self._get_media_type(mime_type)
+            
+            media_dir_path = os.path.join(self.MEDIA_DIR, media_type)
+            if not os.path.exists(media_dir_path):
+                os.makedirs(media_dir_path)
+            
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            filename = f"{media_id}_{timestamp}{extension}"
+            filepath = os.path.join(media_dir_path, filename)
+            
+            with open(filepath, 'wb') as f:
+                f.write(response.content)
+                
+            print(f"Mídia salva em: {filepath}")
+            return os.path.join(media_type, filename)
+        
+        except Exception as e:
+            print(f"Erro ao baixar mídia: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def upload_media(self, media_path, whatsapp_token):
+        try:
+            url = "https://graph.facebook.com/v16.0/media"
+            
+            full_path = os.path.join(self.MEDIA_DIR, media_path) if not media_path.startswith(self.MEDIA_DIR) else media_path
+            if not os.path.exists(full_path):
+                print(f"Arquivo não encontrado: {full_path}")
+                return None
+            
+            mime_type, _ = mimetypes.guess_type(full_path)
+            if not mime_type:
+                ext = os.path.splitext(full_path)[1].lower()
+                if ext in ['.jpg', '.jpeg']:
+                    mime_type = 'image/jpeg'
+                elif ext == '.png':
+                    mime_type = 'image/png'
+                elif ext == '.mp3':
+                    mime_type = 'audio/mpeg'
+                elif ext == '.mp4':
+                    mime_type = 'video/mp4'
+                elif ext == '.pdf':
+                    mime_type = 'application/pdf'
+                else:
+                    mime_type = 'application/octet-stream'
+            
+            with open(full_path, 'rb') as media_file:
+                files = {
+                    'file': (os.path.basename(full_path), media_file, mime_type)
+                }
+                
+                data = {
+                    'messaging_product': 'whatsapp'
+                }
+                
+                headers = {
+                    'Authorization': f'Bearer {whatsapp_token}'
+                }
+                
+                response = requests.post(url, headers=headers, data=data, files=files)
+                
+                if response.status_code == 200:
+                    media_id = response.json().get('id')
+                    print(f"Mídia enviada com sucesso. ID: {media_id}")
+                    return media_id
+                else:
+                    print(f"Erro ao enviar mídia: {response.text}")
+                    return None
+                
+        except Exception as e:
+            print(f"Erro ao enviar mídia: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def _get_media_type(self, mime_type):
+        if mime_type.startswith('image/'):
+            return "images"
+        elif mime_type.startswith('audio/'):
+            return "audio"
+        elif mime_type.startswith('video/'):
+            return "video"
+        else:
+            return "documents"
+# FIM DO ARQUIVO: media_handler.py 
+
+# INÍCIO DO ARQUIVO: qwen1.py (5/12) 
+import json
+import os
+import requests
+from datetime import datetime
+
+# Variável InputWhats
+InputWhats = ""
+
+def ler_arquivo(nome_arquivo):
+    try:
+        with open(nome_arquivo, 'r', encoding='utf-8') as arquivo:
+            return arquivo.read()
+    except FileNotFoundError:
+        print(f"Arquivo {nome_arquivo} não encontrado.")
+        return ""
+    except Exception as e:
+        print(f"Erro ao ler o arquivo {nome_arquivo}: {e}")
+        return ""
+
+def salvar_historico(phone_number, historico):
+    try:
+        with open(f'conversations/{phone_number}.json', 'w', encoding='utf-8') as arquivo:
+            json.dump(historico, arquivo, ensure_ascii=False, indent=4)
+        print(f"Histórico da conversa com {phone_number} salvo.")
+    except Exception as e:
+        print(f"Erro ao salvar o histórico: {e}")
+
+def enviar_para_deepseek(prompt):
+    API_KEY = "sk-8505379415ba47f39c1694ca1ebdd6a2"
+    URL = "https://api.deepseek.com/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": "deepseek-chat",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.8,
+        "max_tokens": 6000
+    }
+
+    try:
+        response = requests.post(URL, headers=headers, json=data)
+        response.raise_for_status()
+        return response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+    except requests.exceptions.RequestException as e:
+        print(f"Erro ao enviar solicitação para a API do DeepSeek: {e}")
+        return None
+
+def process_message(message, phone_number):
+    global InputWhats
+    InputWhats = message
+
+    instrucao_fixa = ler_arquivo("instrucaoFixa.txt")
+    dados = ler_arquivo("Dados.txt")
+
+    historico_conversa = []
+    historico_file = f"conversations/{phone_number}.json"
+    if os.path.exists(historico_file):
+        with open(historico_file, 'r', encoding='utf-8') as arquivo:
+            historico_conversa = json.load(arquivo).get("messages", [])
+    else:
+        historico_conversa = ["Primeiro Contato Deste Cliente"]
+
+    InputDeepSeek = f"{InputWhats}\n\n{instrucao_fixa}\n\n{dados}\n\nHistórico:\n{json.dumps(historico_conversa, ensure_ascii=False, indent=4)}"
+
+    resposta_deepseek = enviar_para_deepseek(InputDeepSeek)
+
+    if resposta_deepseek is not None:
+        print("Resposta do DeepSeek:", resposta_deepseek)
+
+        nova_mensagem = {
+            "type": "text",
+            "content": message,
+            "from": "cliente",
+            "timestamp": datetime.now().strftime("%H:%M %d/%m/%y")
+        }
+        
+        nova_resposta = {
+            "type": "text",
+            "content": resposta_deepseek,
+            "from": "deepseek",
+            "timestamp": datetime.now().strftime("%H:%M %d/%m/%y")
+        }
+
+        if os.path.exists(historico_file):
+            with open(historico_file, 'r', encoding='utf-8') as arquivo:
+                historico_existente = json.load(arquivo)
+        else:
+            historico_existente = {"messages": []}
+
+        if "messages" not in historico_existente:
+            historico_existente["messages"] = []
+            
+        historico_existente["messages"].extend([nova_mensagem, nova_resposta])
+
+        salvar_historico(phone_number, historico_existente)
+
+        return resposta_deepseek
+    else:
+        print("Não foi possível obter uma resposta do DeepSeek.")
+        return None
+# FIM DO ARQUIVO: qwen1.py 
+
+// INÍCIO DO ARQUIVO: static\js\api.js (6/12) 
+// Sistema de mensageria - Módulo de API
+// Gerencia todas as chamadas HTTP para o backend
+
+const API = {
+    // Obtém uma conversa pelo número de telefone
+    getConversation: async function(phone) {
+        try {
+            const response = await fetch(`/conversation/${phone}`);
+            if (!response.ok) {
+                throw new Error('Erro ao carregar conversa: ' + response.statusText);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("Erro API getConversation:", error);
+            throw error;
+        }
+    },
+    
+    // Envia uma mensagem de texto
+    sendMessage: async function(phone, message, mediaPath = null, mediaType = null) {
+        try {
+            const payload = {
+                to_number: phone,
+                message: message
+            };
+            
+            if (mediaPath && mediaType) {
+                payload.media_path = mediaPath;
+                payload.media_type = mediaType;
+            }
+            
+            const response = await fetch('/send_message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                throw new Error('Erro ao enviar mensagem: ' + response.statusText);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error("Erro API sendMessage:", error);
+            throw error;
+        }
+    },
+    
+    // Alterna o modo da conversa (automático/humano)
+    toggleMode: async function(phone) {
+        try {
+            const response = await fetch(`/toggle_mode/${phone}`, {
+                method: 'POST'
+            });
+            
+            if (!response.ok) {
+                throw new Error('Erro ao alternar modo: ' + response.statusText);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error("Erro API toggleMode:", error);
+            throw error;
+        }
+    },
+    
+    // Faz upload de mídia
+    uploadMedia: async function(file, caption) {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const response = await fetch('/upload_media', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error('Erro ao fazer upload: ' + response.statusText);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error("Erro API uploadMedia:", error);
+            throw error;
+        }
+    }
+};
+// FIM DO ARQUIVO: static\js\api.js 
+
+// INÍCIO DO ARQUIVO: static\js\conversation.js (7/12) 
+// Sistema de mensageria - Módulo de gerenciamento de conversas
+// Gerencia todas as operações relacionadas às conversas e mensagens
+
+const ConversationManager = {
+    initialize: function() {
+        console.log("Módulo de conversas inicializado");
+    },
+    
+    // Carrega a conversa de um número específico
+    loadConversation: function(phone) {
+        console.log("Carregando conversa:", phone);
+        window.appState.currentPhone = phone;
+        
+        // Destaca a conversa selecionada
+        document.querySelectorAll('.conversation-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.getAttribute('data-phone') === phone) {
+                item.classList.add('active');
+            }
+        });
+        
+        // Mostra o botão de alternar modo
+        document.getElementById('toggle-mode-btn').style.display = 'block';
+        
+        API.getConversation(phone)
+            .then(conversation => {
+                window.appState.currentConversation = conversation;
+                
+                // Atualiza informações do contato
+                document.getElementById('contact-name').innerText = conversation.name || phone;
+                
+                // Atualiza o avatar do contato
+                const avatarContainer = document.getElementById('contact-avatar');
+                if (conversation.profile_pic) {
+                    avatarContainer.innerHTML = `<img src="${conversation.profile_pic}" alt="${conversation.name}">`;
+                } else {
+                    const initial = (conversation.name || phone)[0];
+                    avatarContainer.innerHTML = `<div class="avatar-placeholder">${initial}</div>`;
+                }
+                
+                // Atualiza o ícone do botão de modo
+                UI.updateModeButton(conversation.mode);
+                
+                // Exibe as mensagens na área principal
+                if (conversation.messages && Array.isArray(conversation.messages)) {
+                    UI.displayMessages(conversation.messages);
+                    
+                    // Exibe apenas as mensagens da IA na coluna da direita
+                    UI.displayAIMessages(conversation.messages);
+                } else {
+                    console.log("Mensagens não encontradas ou não são um array:", conversation);
+                    UI.displayMessages([]);
+                    UI.displayAIMessages([]);
+                }
+            })
+            .catch(error => {
+                console.error("Erro ao carregar conversa:", error);
+                alert("Erro ao carregar a conversa. Verifique o console para detalhes.");
+            });
+    },
+    
+    // Envia uma mensagem para o número atualmente selecionado
+    sendMessage: function() {
+        const messageInput = document.getElementById('message-input');
+        const message = messageInput.value.trim();
+        
+        console.log("Tentando enviar mensagem para:", window.appState.currentPhone);
+        
+        if (!window.appState.currentPhone || !message) {
+            alert("Selecione uma conversa e digite uma mensagem!");
+            return;
+        }
+        
+        // Desabilita o botão de envio para evitar cliques duplos
+        const sendButton = document.getElementById('send-button');
+        sendButton.disabled = true;
+        
+        API.sendMessage(window.appState.currentPhone, message)
+            .then(data => {
+                if (data.status === "success") {
+                    messageInput.value = '';
+                    // Recarrega a conversa para mostrar a nova mensagem
+                    this.loadConversation(window.appState.currentPhone);
+                } else {
+                    alert("Falha ao enviar mensagem!");
+                }
+            })
+            .catch(error => {
+                console.error("Erro ao enviar mensagem:", error);
+                alert("Erro ao enviar mensagem. Verifique o console para detalhes.");
+            })
+            .finally(() => {
+                // Reativa o botão de envio
+                sendButton.disabled = false;
+            });
+    },
+    
+    // Alterna o modo da conversa entre automático e humano
+    toggleConversationMode: function(phone, event) {
+        console.log("Alternando modo para:", phone);
+        
+        // Impede que o clique propague para o item da conversa
+        if (event) {
+            event.stopPropagation();
+        }
+        
+        API.toggleMode(phone)
+            .then(data => {
+                if (data.status === 'success') {
+                    // Atualiza o visual do botão na lista
+                    const toggleBtn = document.querySelector(`.conversation-item[data-phone="${phone}"] .mode-toggle`);
+                    if (toggleBtn) {
+                        toggleBtn.classList.toggle('human-mode');
+                        toggleBtn.classList.toggle('auto-mode');
+                        
+                        const icon = toggleBtn.querySelector('i');
+                        if (data.mode === 'human') {
+                            icon.className = 'fas fa-user';
+                        } else {
+                            icon.className = 'fas fa-robot';
+                        }
+                    }
+                    
+                    // Se for a conversa atual, atualiza o botão principal também
+                    if (phone === window.appState.currentPhone) {
+                        UI.updateModeButton(data.mode);
+                    }
+                    
+                    // Recarrega a conversa para mostrar as mudanças
+                    if (phone === window.appState.currentPhone) {
+                        this.loadConversation(phone);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error("Erro ao alternar modo:", error);
+                alert("Erro ao alternar o modo de conversa. Verifique o console para detalhes.");
+            });
+    },
+    
+    // Inicia uma nova conversa com um número fornecido pelo usuário
+    startNewConversation: function() {
+        const phoneInput = document.getElementById('new-phone');
+        const phone = phoneInput.value.trim();
+        if (!phone) {
+            alert("Digite um número de telefone válido!");
+            return;
+        }
+        
+        console.log("Iniciando nova conversa com:", phone);
+        
+        // Verifica se a conversa já existe
+        const conversationList = document.getElementById('conversation-list');
+        const existingConversation = Array.from(conversationList.children).find(
+            item => item.getAttribute('data-phone') === phone
+        );
+        
+        if (!existingConversation) {
+            // Cria uma nova conversa na lista
+            const newConversation = document.createElement('div');
+            newConversation.className = 'conversation-item';
+            newConversation.setAttribute('data-phone', phone);
+            
+            newConversation.innerHTML = `
+                <div class="conversation-avatar">
+                    <div class="avatar-placeholder">${phone[0]}</div>
+                </div>
+                <div class="conversation-info">
+                    <div class="name">${phone}</div>
+                    <div class="phone">${phone}</div>
+                </div>
+                <div class="conversation-mode">
+                    <div class="mode-toggle auto-mode">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                </div>
+            `;
+            
+            // Adiciona event listeners para a nova conversa
+            newConversation.addEventListener('click', function() {
+                ConversationManager.loadConversation(phone);
+            });
+            
+            const toggleMode = newConversation.querySelector('.mode-toggle');
+            toggleMode.addEventListener('click', function(event) {
+                event.stopPropagation();
+                ConversationManager.toggleConversationMode(phone);
+            });
+            
+            conversationList.appendChild(newConversation);
+        }
+        
+        // Carrega a conversa
+        this.loadConversation(phone);
+        phoneInput.value = '';
+    },
+    
+    // Verifica por novas mensagens
+    checkForNewMessages: function() {
+        if (!window.appState.currentPhone) return;
+        
+        API.getConversation(window.appState.currentPhone)
+            .then(conversation => {
+                // Só atualiza se houver diferença no número de mensagens
+                if (!window.appState.currentConversation || 
+                    !window.appState.currentConversation.messages || 
+                    !conversation.messages ||
+                    window.appState.currentConversation.messages.length !== conversation.messages.length) {
+                    
+                    console.log("Novas mensagens detectadas, atualizando conversa");
+                    window.appState.currentConversation = conversation;
+                    
+                    if (conversation.messages && Array.isArray(conversation.messages)) {
+                        UI.displayMessages(conversation.messages);
+                        UI.displayAIMessages(conversation.messages);
+                    }
+                    
+                    // Atualiza o modo também
+                    UI.updateModeButton(conversation.mode);
+                }
+            })
+            .catch(error => {
+                console.error("Erro ao buscar novas mensagens:", error);
+            });
+    }
+};
+// FIM DO ARQUIVO: static\js\conversation.js 
+
+// INÍCIO DO ARQUIVO: static\js\main.js (8/12) 
+// Sistema de mensageria - Módulo principal
+// Gerencia a inicialização de todos os componentes
+
+// Variáveis globais que serão acessíveis por todos os módulos
+window.appState = {
+    currentPhone: null,
+    currentConversation: null,
+    mediaUploadType: null
+};
+
+// Inicializa a aplicação quando o DOM estiver carregado
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("Inicializando aplicação...");
+    
+    // Inicializa cada módulo
+    UI.initialize();
+    ConversationManager.initialize();
+    MediaManager.initialize();
+    
+    // Configura os event listeners para os elementos do DOM
+    setupEventListeners();
+    
+    // Inicia o polling para verificar novas mensagens
+    startPolling();
+    
+    // Verifica se já existe alguma conversa para selecionar
+    autoSelectFirstConversation();
+});
+
+// Configura os ouvintes de eventos para interações do usuário
+function setupEventListeners() {
+    // Event listener para pesquisa
+    document.getElementById('search-input').addEventListener('input', UI.filterConversations);
+    
+    // Event listener para envio com Enter
+    document.getElementById('message-input').addEventListener('keydown', function(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            ConversationManager.sendMessage();
+        }
+    });
+    
+    // Event listener para o botão de enviar
+    document.getElementById('send-button').addEventListener('click', ConversationManager.sendMessage);
+    
+    // Configurar cliques de conversa na lista
+    const conversationItems = document.querySelectorAll('.conversation-item');
+    conversationItems.forEach(item => {
+        const phone = item.getAttribute('data-phone');
+        
+        // Adiciona evento de clique para carregar conversa
+        item.addEventListener('click', function() {
+            ConversationManager.loadConversation(phone);
+        });
+        
+        // Encontra o botão de alternar modo e adiciona o evento separadamente
+        const toggleButton = item.querySelector('.mode-toggle');
+        if (toggleButton) {
+            toggleButton.addEventListener('click', function(event) {
+                event.stopPropagation(); // Impede que o clique propague para o item da conversa
+                ConversationManager.toggleConversationMode(phone);
+            });
+        }
+    });
+    
+    // Botão de alternar modo de conversa atual
+    const toggleModeBtn = document.getElementById('toggle-mode-btn');
+    if (toggleModeBtn) {
+        toggleModeBtn.addEventListener('click', function() {
+            if (window.appState.currentPhone) {
+                ConversationManager.toggleConversationMode(window.appState.currentPhone);
+            }
+        });
+    }
+    
+    // Botões de mídia
+    const mediaButtons = document.querySelectorAll('.media-btn');
+    mediaButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const type = this.getAttribute('data-type') || 
+                         (this.querySelector('i').classList.contains('fa-image') ? 'image' :
+                          this.querySelector('i').classList.contains('fa-microphone') ? 'audio' :
+                          this.querySelector('i').classList.contains('fa-video') ? 'video' : 'document');
+            
+            MediaManager.openMediaUpload(type);
+        });
+    });
+    
+    // Botão para iniciar nova conversa
+    const newConversationBtn = document.getElementById('start-conversation-btn');
+    if (newConversationBtn) {
+        newConversationBtn.addEventListener('click', ConversationManager.startNewConversation);
+    }
+    
+    // Botão para fechar modal de upload
+    const closeModalBtn = document.querySelector('.modal .close');
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', MediaManager.closeMediaUpload);
+    }
+    
+    // Botão para enviar mídia
+    const uploadMediaBtn = document.getElementById('upload-media-btn');
+    if (uploadMediaBtn) {
+        uploadMediaBtn.addEventListener('click', MediaManager.uploadMedia);
+    }
+}
+
+// Seleciona automaticamente a primeira conversa na lista, se existir
+function autoSelectFirstConversation() {
+    const firstConversation = document.querySelector('.conversation-item');
+    if (firstConversation) {
+        const phone = firstConversation.getAttribute('data-phone');
+        if (phone) {
+            ConversationManager.loadConversation(phone);
+        }
+    }
+}
+
+// Inicia o polling para verificar novas mensagens periodicamente
+function startPolling() {
+    setInterval(function() {
+        if (window.appState.currentPhone) {
+            ConversationManager.checkForNewMessages();
+        }
+    }, 5000);
+}
+// FIM DO ARQUIVO: static\js\main.js 
+
+// INÍCIO DO ARQUIVO: static\js\media.js (9/12) 
+// Sistema de mensageria - Módulo de gerenciamento de mídia
+// Gerencia operações de upload e exibição de mídia
+
+const MediaManager = {
+    initialize: function() {
+        console.log("Módulo de mídia inicializado");
+    },
+    
+    // Abre o modal de upload de mídia
+    openMediaUpload: function(type) {
+        console.log("Abrindo upload de mídia:", type);
+        window.appState.mediaUploadType = type;
+        const modal = document.getElementById('media-upload-modal');
+        const title = document.getElementById('upload-title');
+        
+        // Ajusta o título baseado no tipo
+        switch(type) {
+            case 'image':
+                title.textContent = 'Enviar Imagem';
+                break;
+            case 'audio':
+                title.textContent = 'Enviar Áudio';
+                break;
+            case 'video':
+                title.textContent = 'Enviar Vídeo';
+                break;
+            case 'document':
+                title.textContent = 'Enviar Documento';
+                break;
+        }
+        
+        modal.style.display = 'block';
+    },
+    
+    // Fecha o modal de upload de mídia
+    closeMediaUpload: function() {
+        const modal = document.getElementById('media-upload-modal');
+        modal.style.display = 'none';
+        
+        // Limpa os campos
+        document.getElementById('media-file').value = '';
+        document.getElementById('media-caption').value = '';
+    },
+    
+    // Faz upload da mídia e envia para o contato
+    uploadMedia: function() {
+        if (!window.appState.currentPhone) {
+            alert("Selecione uma conversa primeiro!");
+            MediaManager.closeMediaUpload();
+            return;
+        }
+        
+        const fileInput = document.getElementById('media-file');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert("Selecione um arquivo!");
+            return;
+        }
+        
+        console.log("Enviando mídia:", fileInput.files[0].name);
+        
+        const caption = document.getElementById('media-caption').value.trim();
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        
+        // Envia o arquivo para o servidor
+        fetch('/upload_media', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro ao fazer upload: ' + response.statusText);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Resposta do upload:", data);
+            if (data.status === 'success') {
+                // Agora envia a mensagem com a mídia
+                return API.sendMessage(
+                    window.appState.currentPhone,
+                    caption,
+                    data.media_path,
+                    data.media_type
+                );
+            } else {
+                throw new Error(data.message || 'Erro ao fazer upload da mídia');
+            }
+        })
+        .then(data => {
+            console.log("Resposta do envio com mídia:", data);
+            if (data.status === 'success') {
+                MediaManager.closeMediaUpload();
+                // Recarrega a conversa para mostrar a nova mensagem
+                ConversationManager.loadConversation(window.appState.currentPhone);
+            } else {
+                alert("Falha ao enviar mensagem com mídia!");
+            }
+        })
+        .catch(error => {
+            console.error("Erro no processo de mídia:", error);
+            alert("Erro: " + error.message);
+        });
+    }
+};
+// FIM DO ARQUIVO: static\js\media.js 
+
+// INÍCIO DO ARQUIVO: static\js\ui.js (10/12) 
+// Sistema de mensageria - Módulo da interface do usuário
+// Gerencia elementos visuais e manipulação do DOM
+
+const UI = {
+    initialize: function() {
+        console.log("Módulo UI inicializado");
+    },
+    
+    // Filtrar a lista de conversas
+    filterConversations: function() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        const conversationItems = document.querySelectorAll('.conversation-item');
+        
+        conversationItems.forEach(item => {
+            const name = item.querySelector('.name').textContent.toLowerCase();
+            const phone = item.querySelector('.phone').textContent.toLowerCase();
+            
+            if (name.includes(searchTerm) || phone.includes(searchTerm)) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    },
+    
+    // Exibir mensagens na área principal
+    displayMessages: function(messages) {
+        console.log("Exibindo mensagens:", messages.length);
+        const messageArea = document.getElementById('message-area');
+        messageArea.innerHTML = '';
+        
+        if (!messages || messages.length === 0) {
+            messageArea.innerHTML = '<div class="empty-state">Nenhuma mensagem ainda</div>';
+            return;
+        }
+        
+        messages.forEach(msg => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${msg.from}`;
+            
+            let messageContent = '';
+            
+            // Verifica se temos o tipo ou se estamos no formato antigo
+            const messageType = msg.type || 'text';
+            const content = msg.content || msg.text || '';
+            
+            // Adiciona conteúdo baseado no tipo de mensagem
+            if (messageType === 'text') {
+                messageContent = `<div class="message-text">${content}</div>`;
+            } else if (messageType === 'image') {
+                messageContent = `
+                    <div class="message-media">
+                        <img src="/media/${msg.media_url}" alt="Imagem">
+                    </div>
+                    ${content ? `<div class="message-caption">${content}</div>` : ''}
+                `;
+            } else if (messageType === 'audio') {
+                messageContent = `
+                    <div class="message-media">
+                        <audio controls src="/media/${msg.media_url}"></audio>
+                    </div>
+                    ${content ? `<div class="message-caption">${content}</div>` : ''}
+                `;
+            } else if (messageType === 'video') {
+                messageContent = `
+                    <div class="message-media">
+                        <video controls src="/media/${msg.media_url}"></video>
+                    </div>
+                    ${content ? `<div class="message-caption">${content}</div>` : ''}
+                `;
+            } else if (messageType === 'document') {
+                const fileName = msg.media_url ? msg.media_url.split('/').pop() : 'documento';
+                messageContent = `
+                    <div class="message-document">
+                        <a href="/media/${msg.media_url}" target="_blank" class="document-link">
+                            <i class="fas fa-file"></i> ${fileName}
+                        </a>
+                    </div>
+                    ${content ? `<div class="message-caption">${content}</div>` : ''}
+                `;
+            }
+            
+            // Adiciona timestamp
+            messageContent += `<div class="message-time">${msg.timestamp || 'Sem data'}</div>`;
+            
+            messageDiv.innerHTML = messageContent;
+            messageArea.appendChild(messageDiv);
+        });
+        
+        // Rola para a mensagem mais recente
+        messageArea.scrollTop = messageArea.scrollHeight;
+    },
+    
+    // Exibe apenas as mensagens da IA na coluna da direita
+    displayAIMessages: function(messages) {
+        console.log("Exibindo mensagens de IA");
+        const aiMessageArea = document.getElementById('ai-message-area');
+        aiMessageArea.innerHTML = '';
+        
+        if (!messages || messages.length === 0) {
+            aiMessageArea.innerHTML = '<div class="empty-state">Nenhuma interação com a IA ainda</div>';
+            return;
+        }
+        
+        // Filtra apenas mensagens do cliente e da IA (qwen/deepseek)
+        const aiInteractions = messages.filter(msg => 
+            msg.from === 'cliente' || msg.from === 'qwen' || msg.from === 'deepseek'
+        );
+        
+        if (aiInteractions.length === 0) {
+            aiMessageArea.innerHTML = '<div class="empty-state">Nenhuma interação com a IA ainda</div>';
+            return;
+        }
+        
+        aiInteractions.forEach(msg => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${msg.from}`;
+            
+            let messageContent = '';
+            
+            // Verifica se temos o tipo ou se estamos no formato antigo
+            const messageType = msg.type || 'text';
+            const content = msg.content || msg.text || '';
+            
+            // Simplifica a exibição na coluna da IA (apenas texto e descrições curtas para mídia)
+            if (messageType === 'text') {
+                messageContent = `<div class="message-text">${content}</div>`;
+            } else {
+                messageContent = `<div class="message-text">[${messageType.toUpperCase()}] ${content || ''}</div>`;
+            }
+            
+            // Adiciona timestamp
+            messageContent += `<div class="message-time">${msg.timestamp || 'Sem data'}</div>`;
+            
+            messageDiv.innerHTML = messageContent;
+            aiMessageArea.appendChild(messageDiv);
+        });
+        
+        // Rola para a mensagem mais recente
+        aiMessageArea.scrollTop = aiMessageArea.scrollHeight;
+    },
+    
+    // Atualiza o ícone do botão de modo
+    updateModeButton: function(mode) {
+        const toggleBtn = document.getElementById('toggle-mode-btn');
+        if (toggleBtn) {
+            if (mode === 'human') {
+                toggleBtn.innerHTML = '<i class="fas fa-user"></i> Modo Humano';
+                toggleBtn.classList.add('human-mode');
+                toggleBtn.classList.remove('auto-mode');
+            } else {
+                toggleBtn.innerHTML = '<i class="fas fa-robot"></i> Modo Automático';
+                toggleBtn.classList.add('auto-mode');
+                toggleBtn.classList.remove('human-mode');
+            }
+        }
+    }
+};
+// FIM DO ARQUIVO: static\js\ui.js 
+
+/* INÍCIO DO ARQUIVO: static\styles.css (11/12) */
+/* Reset básico */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Estilo global */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+    display: flex;
+    height: 100vh;
+}
+
+/* Container principal */
+.container {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Coluna da esquerda (Lista de Conversas) */
+.left-column {
+    width: 25%;
+    background-color: #ffffff;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Barra de busca */
+.search-bar {
+    padding: 15px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.search-bar input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.search-bar input:focus {
+    border-color: #007bff;
+}
+
+/* Nova conversa */
+.new-conversation {
+    padding: 15px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.new-conversation input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+}
+
+.new-conversation button {
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+.new-conversation button:hover {
+    background-color: #0056b3;
+}
+
+/* Lista de conversas */
+.conversation-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.conversation-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    margin-bottom: 5px;
+    border-radius: 8px;
+    cursor: pointer;
+    background-color: #fafafa;
+    transition: background-color 0.3s ease;
+}
+
+.conversation-item:hover {
+    background-color: #f0f0f0;
+}
+
+.conversation-item.active {
+    background-color: #e3f2fd;
+}
+
+.conversation-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: 12px;
+    background-color: #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.conversation-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #4e9af1;
+    color: white;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.conversation-info {
+    flex: 1;
+    overflow: hidden;
+}
+
+.conversation-info .name {
+    font-weight: bold;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.conversation-info .phone {
+    font-size: 12px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.conversation-mode {
+    margin-left: 8px;
+}
+
+.mode-toggle {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.mode-toggle.human-mode {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.mode-toggle.auto-mode {
+    background-color: #9e9e9e;
+    color: white;
+}
+
+/* Coluna central (Conversa Atual) */
+.center-column {
+    width: 50%;
+    background-color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #e0e0e0;
+    position: relative;
+}
+
+/* Coluna da direita (Visualização da IA) */
+.right-column {
+    width: 25%;
+    background-color: #f9f9f9;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Cabeçalho para ambas as colunas */
+.header {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #fff;
+}
+
+/* Info de contato no cabeçalho */
+.contact-info {
+    display: flex;
+    align-items: center;
+}
+
+.contact-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: 12px;
+}
+
+.contact-name {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+/* Ações de conversa */
+.conversation-actions button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 8px;
+    background-color: #f0f0f0;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: background-color 0.3s ease;
+}
+
+.conversation-actions button:hover {
+    background-color: #e0e0e0;
+}
+
+.conversation-actions button.human-mode {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.conversation-actions button.auto-mode {
+    background-color: #f5f5f5;
+    color: #616161;
+}
+
+/* Título da área de IA */
+.ai-title {
+    font-weight: bold;
+    font-size: 16px;
+    color: #333;
+}
+
+/* Áreas de mensagem */
+.message-area, .ai-message-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    background-color: #f7f7f7;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Estilo para área vazia */
+.empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #888;
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Mensagens */
+.message {
+    max-width: 70%;
+    padding: 10px 15px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 1.4;
+    position: relative;
+    word-wrap: break-word;
+}
+
+.message.cliente {
+    align-self: flex-end;
+    background-color: #dcf8c6;
+    margin-left: auto;
+}
+
+.message.vendedor, .message.qwen, .message.deepseek {
+    align-self: flex-start;
+    background-color: white;
+    margin-right: auto;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.message.vendedor {
+    border-left: 3px solid #2196F3;
+}
+
+.message.qwen, .message.deepseek {
+    border-left: 3px solid #9C27B0;
+}
+
+/* Conteúdo das mensagens */
+.message-text {
+    margin-bottom: 6px;
+}
+
+.message-time {
+    font-size: 11px;
+    color: #999;
+    text-align: right;
+    margin-top: 5px;
+}
+
+.message-media {
+    max-width: 100%;
+    margin-bottom: 8px;
+}
+
+.message-media img {
+    max-width: 100%;
+    border-radius: 8px;
+}
+
+.message-media video, .message-media audio {
+    max-width: 100%;
+    border-radius: 4px;
+}
+
+.message-caption {
+    font-size: 13px;
+    margin-top: 4px;
+    color: #444;
+}
+
+.message-document {
+    display: flex;
+    align-items: center;
+    background-color: rgba(0,0,0,0.05);
+    padding: 8px;
+    border-radius: 5px;
+    margin-bottom: 6px;
+}
+
+.document-link {
+    display: flex;
+    align-items: center;
+    color: #1565C0;
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.document-link i {
+    margin-right: 6px;
+    font-size: 20px;
+}
+
+/* Área de envio de mensagem */
+.input-area {
+    padding: 10px 15px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #fff;
+}
+
+.media-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.media-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background-color: #f0f0f0;
+    color: #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.media-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.input-area textarea {
+    flex: 1;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    font-size: 14px;
+    resize: none;
+    height: 40px;
+    max-height: 120px;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.input-area textarea:focus {
+    border-color: #007bff;
+}
+
+.input-area button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.input-area button:hover {
+    background-color: #0056b3;
+}
+
+/* Modal de upload de mídia */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    overflow: auto;
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 10% auto;
+    padding: 20px;
+    border-radius: 10px;
+    width: 50%;
+    max-width: 500px;
+    position: relative;
+}
+
+.close {
+    position: absolute;
+    right: 15px;
+    top: 10px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #555;
+}
+
+#media-upload-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+#media-file {
+    border: 1px dashed #ccc;
+    padding: 20px;
+    text-align: center;
+    border-radius: 8px;
+}
+
+#media-caption {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    resize: none;
+    height: 80px;
+    font-size: 14px;
+    outline: none;
+}
+
+#media-upload-form button {
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+#media-upload-form button:hover {
+    background-color: #0056b3;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+    }
+    
+    .left-column, .center-column, .right-column {
+        width: 100%;
+        height: auto;
+    }
+    
+    .left-column {
+        height: 30vh;
+    }
+    
+    .center-column {
+        height: 70vh;
+    }
+    
+    .right-column {
+        display: none; /* Oculta a coluna direita em telas pequenas */
+    }
+    
+    .modal-content {
+        width: 90%;
+    }
+}
+/* FIM DO ARQUIVO: static\styles.css */
+
+<!-- INÍCIO DO ARQUIVO: templates\index.html (12/12) -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interface de Atendimento</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Coluna da esquerda (Lista de Conversas) -->
+        <div class="left-column">
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Buscar conversas...">
+            </div>
+            <div class="new-conversation">
+                <input type="text" id="new-phone" placeholder="Digite o número do telefone">
+                <button id="start-conversation-btn">Iniciar Conversa</button>
+            </div>
+            <div class="conversation-list" id="conversation-list">
+                {% for phone, conv in conversations.items() %}
+                <div class="conversation-item" data-phone="{{ phone }}">
+                    <div class="conversation-avatar">
+                        {% if conv.profile_pic %}
+                            <img src="{{ conv.profile_pic }}" alt="{{ conv.name }}">
+                        {% else %}
+                            <div class="avatar-placeholder">{{ conv.name[0]|default('?') }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="conversation-info">
+                        <div class="name">{{ conv.name }}</div>
+                        <div class="phone">{{ phone }}</div>
+                    </div>
+                    <div class="conversation-mode">
+                        <div class="mode-toggle {% if conv.mode == 'human' %}human-mode{% else %}auto-mode{% endif %}">
+                            <i class="fas {% if conv.mode == 'human' %}fa-user{% else %}fa-robot{% endif %}"></i>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Coluna central (Conversa Atual) -->
+        <div class="center-column">
+            <div class="header">
+                <div class="contact-info">
+                    <div class="contact-avatar" id="contact-avatar">
+                        <div class="avatar-placeholder"></div>
+                    </div>
+                    <div class="contact-name" id="contact-name">Selecione uma conversa</div>
+                </div>
+                <div class="conversation-actions">
+                    <button id="toggle-mode-btn" style="display:none;">
+                        <i class="fas fa-robot"></i> Modo Automático
+                    </button>
+                </div>
+            </div>
+            <div class="message-area" id="message-area">
+                <div class="empty-state">
+                    Selecione uma conversa para começar
+                </div>
+            </div>
+            <div class="input-area">
+                <div class="media-buttons">
+                    <button class="media-btn" data-type="image">
+                        <i class="fas fa-image"></i>
+                    </button>
+                    <button class="media-btn" data-type="audio">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button class="media-btn" data-type="video">
+                        <i class="fas fa-video"></i>
+                    </button>
+                    <button class="media-btn" data-type="document">
+                        <i class="fas fa-file"></i>
+                    </button>
+                </div>
+                <textarea placeholder="Digite sua mensagem..." id="message-input"></textarea>
+                <button id="send-button">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            
+            <!-- Upload de mídia (oculto por padrão) -->
+            <div id="media-upload-modal" class="modal">
+                <div class="modal-content">
+                    <span class="close">&times;</span>
+                    <h3 id="upload-title">Enviar Mídia</h3>
+                    <form id="media-upload-form" enctype="multipart/form-data">
+                        <input type="file" id="media-file" name="file">
+                        <textarea id="media-caption" placeholder="Adicionar legenda (opcional)"></textarea>
+                        <button type="button" id="upload-media-btn">Enviar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Coluna da direita (Visualização da IA) -->
+        <div class="right-column">
+            <div class="header">
+                <div class="ai-title">Conversa Automática</div>
+            </div>
+            <div class="ai-message-area" id="ai-message-area">
+                <div class="empty-state">
+                    Selecione uma conversa para ver as interações com a IA
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Carrega todos os scripts necessários na ordem correta -->
+    <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/conversation.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/media.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
+<!-- FIM DO ARQUIVO: templates\index.html -->
+
+# FIM DO BACKUP - 2025-03-24 11:58:22

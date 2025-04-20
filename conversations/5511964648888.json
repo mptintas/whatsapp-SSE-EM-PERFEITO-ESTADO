@@ -1,0 +1,1874 @@
+{
+    "name": "Andre Prosperi",
+    "profile_pic": "",
+    "mode": "auto",
+    "messages": [
+        {
+            "type": "text",
+            "content": "Boa noite!",
+            "from": "cliente",
+            "timestamp": "20:24 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite!",
+            "from": "cliente",
+            "timestamp": "20:24 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa bnoite!",
+            "from": "qwen",
+            "timestamp": "20:26 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite!",
+            "from": "cliente",
+            "timestamp": "20:26 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá!",
+            "from": "cliente",
+            "timestamp": "20:32 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! Como posso ajudar você hoje?",
+            "from": "qwen",
+            "timestamp": "20:32 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Estou procurando tinta",
+            "from": "cliente",
+            "timestamp": "20:32 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Temos várias opções de tintas epóxi! Qual cor e tamanho você precisa? Estamos com galões de 3,6L e baldes de 18L. 😊",
+            "from": "qwen",
+            "timestamp": "20:32 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Não sei quanto eu vou precisar",
+            "from": "cliente",
+            "timestamp": "20:33 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Entendido! Para calcular, preciso saber o tamanho da área a ser pintada. Pode me informar em metros quadrados? Assim faço um orçamento certo pra você. 😊",
+            "from": "qwen",
+            "timestamp": "20:33 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Tenho 42 de área, quanto que vou precisar?",
+            "from": "cliente",
+            "timestamp": "21:11 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Para 42 m², você precisa de 2 baldes de 18L (rende 130 m²) ou 5 galões de 3,6L (rende 125 m²). Recomendo 2 baldes, sobra um pouquinho e compensa mais! 😊",
+            "from": "qwen",
+            "timestamp": "21:11 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Nossa, sua matemática tá ruim, hein?",
+            "from": "cliente",
+            "timestamp": "21:12 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Ops, desculpe! Vamos ajustar: para 42 m², você precisa de **1 balde e meio** (ou 3 galões). Mas como não vendemos meio balde, recomendo **2 baldes** pra garantir cobertura perfeita. 😊",
+            "from": "qwen",
+            "timestamp": "21:12 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Entendi agora",
+            "from": "cliente",
+            "timestamp": "21:12 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Que bom! 😊 Precisa de ajuda com mais algo? Estou aqui!",
+            "from": "qwen",
+            "timestamp": "21:12 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Meu nome é André, será que você consegue se lembrar disso depois?",
+            "from": "cliente",
+            "timestamp": "21:13 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Claro, André! Vou me lembrar. 😊 Precisa de mais alguma coisa?",
+            "from": "qwen",
+            "timestamp": "21:13 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Se lembra quantos metros eu disse que precisava pintar?",
+            "from": "cliente",
+            "timestamp": "21:14 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sim, André! Você mencionou 42 m². Precisa de algo mais? 😊",
+            "from": "qwen",
+            "timestamp": "21:14 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Vocês entregam em Goiás?",
+            "from": "cliente",
+            "timestamp": "21:14 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Entregamos para Goiás, André! Frete por transportadora. Quer incluir no orçamento? 😊",
+            "from": "qwen",
+            "timestamp": "21:14 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Preciso falar com a minha esposa, a Giulia, é ela que manda em casa… rsrs",
+            "from": "cliente",
+            "timestamp": "21:15 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Entendido, André! Quando Giulia decidir, estou aqui pra ajudar. 😊😉",
+            "from": "qwen",
+            "timestamp": "21:15 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite!",
+            "from": "cliente",
+            "timestamp": "21:15 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite, André! 😊 Se precisar de mais algo, é só falar. Até logo!",
+            "from": "qwen",
+            "timestamp": "21:15 21/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá!",
+            "from": "cliente",
+            "timestamp": "11:06 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! 😊 Como posso ajudar você hoje?",
+            "from": "qwen",
+            "timestamp": "11:06 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "qwen",
+            "timestamp": "15:00 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Tudo bani?",
+            "from": "cliente",
+            "timestamp": "15:00 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá! Tudo bem sim, e com você? 😊 Como posso ajudar hoje?",
+            "from": "qwen",
+            "timestamp": "15:00 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Você lembra o meu nome?",
+            "from": "cliente",
+            "timestamp": "15:01 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Claro! Você é o André. 😊 Precisa de algo hoje?",
+            "from": "qwen",
+            "timestamp": "15:01 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Eu tinha uma área em m2 para pintar, lembra quanto era?",
+            "from": "cliente",
+            "timestamp": "15:01 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sim, André! Você mencionou 42 m². 😊",
+            "from": "qwen",
+            "timestamp": "15:01 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Se 1 galão de 3,6 litros ponta 26 m2 com uma demão, como você tinha dito, de quantos galões eu preciso para pintar duas demãos na minha área?",
+            "from": "cliente",
+            "timestamp": "15:02 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Para 42 m² com duas demãos, você precisa de **3 galões** de 3,6 litros. Cada galão rende 26 m² por demão, então 3 galões dão 78 m² no total, suficiente para cobrir sua área. 😊",
+            "from": "qwen",
+            "timestamp": "15:02 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde!",
+            "from": "cliente",
+            "timestamp": "17:53 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "17:53 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "17:54 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "19:11 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá!",
+            "from": "cliente",
+            "timestamp": "21:48 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "21:51 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá!",
+            "from": "cliente",
+            "timestamp": "21:52 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oie",
+            "from": "qwen",
+            "timestamp": "21:52 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá",
+            "from": "cliente",
+            "timestamp": "21:52 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite",
+            "from": "cliente",
+            "timestamp": "21:53 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá!",
+            "from": "cliente",
+            "timestamp": "21:54 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite!",
+            "from": "cliente",
+            "timestamp": "22:01 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá",
+            "from": "cliente",
+            "timestamp": "22:03 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite!",
+            "from": "cliente",
+            "timestamp": "22:04 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá",
+            "from": "cliente",
+            "timestamp": "22:11 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá",
+            "from": "cliente",
+            "timestamp": "22:13 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Os",
+            "from": "cliente",
+            "timestamp": "22:13 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá",
+            "from": "cliente",
+            "timestamp": "22:17 22/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boas!",
+            "from": "cliente",
+            "timestamp": "08:28 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "10:41 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "10:41 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi! 😊 Como posso ajudar você hoje?",
+            "from": "qwen",
+            "timestamp": "10:41 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Você tem tinta epóxi?",
+            "from": "cliente",
+            "timestamp": "10:41 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi! 😊 Como posso ajudar você hoje?",
+            "from": "qwen",
+            "timestamp": "10:41 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sim, temos tintas epóxi em várias cores e tamanhos (3,6L e 18L). Qual cor e área você precisa pintar? 😊",
+            "from": "qwen",
+            "timestamp": "10:41 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Estou na dúvida ainda",
+            "from": "cliente",
+            "timestamp": "10:42 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sem problemas! 😊 Quando decidir a cor e a área, é só me avisar que te ajudo com o cálculo e o pedido. Estou à disposição!",
+            "from": "qwen",
+            "timestamp": "10:42 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Se lembra meu nome?",
+            "from": "cliente",
+            "timestamp": "10:42 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Claro, André! 😊 Precisa de algo hoje?",
+            "from": "qwen",
+            "timestamp": "10:42 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Não, amanhã entro em contado novamente",
+            "from": "cliente",
+            "timestamp": "10:46 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Tudo bem, André! Amanhã estarei aqui para te ajudar. 😊 Até lá!",
+            "from": "qwen",
+            "timestamp": "10:46 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "10:47 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi, André! 😊 Como posso ajudar você hoje?",
+            "from": "qwen",
+            "timestamp": "10:48 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi! Estou perturbando você já, né?",
+            "from": "cliente",
+            "timestamp": "10:49 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi, André! Não está perturbando, pode falar! 😊 Como posso ajudar hoje?",
+            "from": "qwen",
+            "timestamp": "10:49 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi! Tudo bem?",
+            "from": "cliente",
+            "timestamp": "14:53 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi, André! Tudo bem, e você? 😊 Como posso ajudar hoje?",
+            "from": "qwen",
+            "timestamp": "14:53 23/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Bom dia!",
+            "from": "cliente",
+            "timestamp": "08:32 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Bom dia, André! 😊 Como posso ajudar hoje?",
+            "from": "qwen",
+            "timestamp": "08:32 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "qwen",
+            "timestamp": "17:55 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi! Tudo bem!",
+            "from": "cliente",
+            "timestamp": "17:55 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi, André! Tudo bem sim, e você? 😊 Como posso ajudar hoje?",
+            "from": "qwen",
+            "timestamp": "17:55 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "18:04 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "olá!",
+            "from": "vendedor",
+            "timestamp": "18:08 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "tudo bem, andré?",
+            "from": "vendedor",
+            "timestamp": "18:09 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Tu do bem, mininu",
+            "from": "cliente",
+            "timestamp": "18:09 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "18:10 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá, tudo bem?",
+            "from": "cliente",
+            "timestamp": "18:14 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá, André! Tudo bem? 😊 Como posso ajudar hoje?",
+            "from": "qwen",
+            "timestamp": "18:14 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "oi!",
+            "from": "vendedor",
+            "timestamp": "18:42 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "olá, andrws",
+            "from": "vendedor",
+            "timestamp": "18:43 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi, mininu",
+            "from": "cliente",
+            "timestamp": "18:43 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "entao ta",
+            "from": "vendedor",
+            "timestamp": "18:44 24/03/25"
+        },
+        {
+            "type": "image",
+            "content": "",
+            "media_url": "images\\959670616339729_20250324184450.jpg",
+            "from": "cliente",
+            "timestamp": "18:44 24/03/25"
+        },
+        {
+            "type": "image",
+            "content": "",
+            "media_url": "images\\IMG_3523.jpg",
+            "from": "vendedor",
+            "timestamp": "18:59 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi, vidos o",
+            "from": "cliente",
+            "timestamp": "19:06 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "oi, amigo!",
+            "from": "vendedor",
+            "timestamp": "19:06 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "como vai?",
+            "from": "vendedor",
+            "timestamp": "19:06 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Tô indo",
+            "from": "cliente",
+            "timestamp": "19:06 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite!",
+            "from": "cliente",
+            "timestamp": "19:07 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite, André! 😊 Precisa de algo hoje?",
+            "from": "qwen",
+            "timestamp": "19:07 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Estou precisando de tinta epóxi de novo. Estou tendo problemas com a minha internet, desculpe minhas mensagens sem sentido",
+            "from": "cliente",
+            "timestamp": "19:07 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi, André! Sem problemas! 😊 Você precisa da mesma tinta epóxi para os 42 m²? Ou quer mudar algo? Posso ajudar!",
+            "from": "qwen",
+            "timestamp": "19:08 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Minha localização atual: https://maps.google.com/?q=-23.5634688,-46.5862656",
+            "from": "vendedor",
+            "timestamp": "21:15 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Minha localização atual: https://maps.google.com/?q=-23.5706787,-46.5934374",
+            "from": "vendedor",
+            "timestamp": "21:16 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite!",
+            "from": "cliente",
+            "timestamp": "21:27 24/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde!",
+            "from": "vendedor",
+            "timestamp": "10:13 25/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde!",
+            "from": "cliente",
+            "timestamp": "13:40 25/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, André! 😊 Precisa de ajuda com a tinta epóxi hoje?",
+            "from": "qwen",
+            "timestamp": "13:40 25/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde!",
+            "from": "cliente",
+            "timestamp": "13:57 25/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, André! 😊 Precisa de ajuda com a tinta epóxi hoje?",
+            "from": "qwen",
+            "timestamp": "13:57 25/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite!",
+            "from": "cliente",
+            "timestamp": "22:03 26/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite, André! 😊 Precisa de ajuda com algo hoje?",
+            "from": "qwen",
+            "timestamp": "22:03 26/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sim, preciso pintar uma piscina",
+            "from": "cliente",
+            "timestamp": "22:04 26/03/25"
+        },
+        {
+            "type": "text",
+            "content": "André, nossa tinta epóxi não é recomendada para piscinas de alvenaria, pois áreas constantemente úmidas exigem cuidados especiais. Sugiro transferir para o Especialista Saulo Mucci ou André Prosperi para orientações técnicas. Posso ajudar? 😊",
+            "from": "qwen",
+            "timestamp": "22:04 26/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde!",
+            "from": "cliente",
+            "timestamp": "13:18 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:18 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá!",
+            "from": "cliente",
+            "timestamp": "13:19 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "13:19 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde!",
+            "from": "cliente",
+            "timestamp": "16:42 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "16:42 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Estou tentando ser atendido",
+            "from": "cliente",
+            "timestamp": "16:55 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Estou à disposição para atendê-lo. Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "16:55 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Desculpe, mandei errado",
+            "from": "cliente",
+            "timestamp": "16:55 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sem problemas, Sr. André. Estou à disposição para ajudá-lo quando precisar. Pode me informar sua dúvida ou solicitação?",
+            "from": "qwen",
+            "timestamp": "16:56 27/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1711052636510817_20250327170352.oga",
+            "from": "cliente",
+            "timestamp": "17:03 27/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\622673417253773_20250327172548.oga",
+            "from": "cliente",
+            "timestamp": "17:25 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Percebi que houve uma tentativa de envio de áudio, mas não foi possível transcrever o conteúdo. Poderia descrever sua dúvida ou solicitação por mensagem de texto? Assim, poderei ajudá-lo da melhor forma possível.",
+            "from": "qwen",
+            "timestamp": "17:26 27/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1725536085047029_20250327172632.oga",
+            "from": "cliente",
+            "timestamp": "17:26 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Percebi que houve uma tentativa de envio de áudio, mas não foi possível transcrever o conteúdo. Poderia descrever sua dúvida ou solicitação por mensagem de texto? Assim, poderei ajudá-lo da melhor forma possível.",
+            "from": "qwen",
+            "timestamp": "17:26 27/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\3585685821734345_20250327173220.oga",
+            "from": "cliente",
+            "timestamp": "17:32 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Percebi que houve uma tentativa de envio de áudio, mas não foi possível transcrever o conteúdo. Poderia descrever sua dúvida ou solicitação por mensagem de texto? Assim, poderei ajudá-lo da melhor forma possível.",
+            "from": "qwen",
+            "timestamp": "17:32 27/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\988097389629952_20250327173526.oga",
+            "from": "cliente",
+            "timestamp": "17:35 27/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\988097389629952_20250327173531.oga",
+            "from": "cliente",
+            "timestamp": "17:35 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Percebi que houve tentativas de envio de áudio, mas não foi possível processá-las. Para que eu possa ajudá-lo da melhor forma, poderia descrever sua dúvida ou solicitação por mensagem de texto? Estou à disposição para atendê-lo.",
+            "from": "qwen",
+            "timestamp": "17:35 27/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\638364805831360_20250327173809.oga",
+            "from": "cliente",
+            "timestamp": "17:38 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Percebi que houve tentativas de envio de áudio, mas não foi possível processá-las. Para que eu possa ajudá-lo da melhor forma, poderia descrever sua dúvida ou solicitação por mensagem de texto? Estou à disposição para atendê-lo.",
+            "from": "qwen",
+            "timestamp": "17:38 27/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\879570570919579_20250327174813.oga",
+            "from": "cliente",
+            "timestamp": "17:48 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Percebi que houve tentativas de envio de áudio, mas não foi possível processá-las. Para que eu possa ajudá-lo da melhor forma, poderia descrever sua dúvida ou solicitação por mensagem de texto? Estou à disposição para atendê-lo.",
+            "from": "qwen",
+            "timestamp": "17:48 27/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1571328916867170_20250327175147.oga",
+            "from": "cliente",
+            "timestamp": "17:51 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "17:52 27/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\643743158277481_20250327175337.oga",
+            "from": "cliente",
+            "timestamp": "17:53 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Infelizmente, nossa tinta epóxi não é recomendada para piscinas de alvenaria, Sr. André. A exposição constante à água e produtos químicos pode comprometer a durabilidade e aderência do produto.  \n\nCaso queira, posso transferir seu atendimento para um especialista que poderá indicar a solução mais adequada para sua necessidade. Como prefere prosseguir?",
+            "from": "qwen",
+            "timestamp": "17:53 27/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Bom dia!",
+            "from": "qwen",
+            "timestamp": "08:16 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Bom dia!",
+            "from": "qwen",
+            "timestamp": "08:16 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá!",
+            "from": "qwen",
+            "timestamp": "08:16 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá!",
+            "from": "qwen",
+            "timestamp": "08:16 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Bom dia!",
+            "from": "vendedor",
+            "timestamp": "08:16 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Bom dia!",
+            "from": "vendedor",
+            "timestamp": "08:16 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!!",
+            "from": "cliente",
+            "timestamp": "08:16 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Bom dia!",
+            "from": "vendedor",
+            "timestamp": "08:18 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Bom dia!",
+            "from": "vendedor",
+            "timestamp": "08:18 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\recording_1743161986178.ogg",
+            "from": "vendedor",
+            "timestamp": "08:39 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1045866630719062_20250328093743.oga",
+            "from": "cliente",
+            "timestamp": "09:37 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1006691298088909_20250328093828.oga",
+            "from": "cliente",
+            "timestamp": "09:38 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Bom dia, Sr. André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "09:38 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "bom dia!",
+            "from": "vendedor",
+            "timestamp": "09:52 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "bom dia!",
+            "from": "vendedor",
+            "timestamp": "09:52 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Bom dia!",
+            "from": "vendedor",
+            "timestamp": "10:06 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Bom dia!",
+            "from": "vendedor",
+            "timestamp": "10:06 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "bom dia",
+            "from": "vendedor",
+            "timestamp": "10:11 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "bom dia",
+            "from": "vendedor",
+            "timestamp": "10:11 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "ola",
+            "from": "vendedor",
+            "timestamp": "10:12 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "ola",
+            "from": "vendedor",
+            "timestamp": "10:12 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "pro",
+            "from": "vendedor",
+            "timestamp": "10:23 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "pro",
+            "from": "vendedor",
+            "timestamp": "10:23 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste número 1569",
+            "from": "vendedor",
+            "timestamp": "10:24 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste número 1569",
+            "from": "vendedor",
+            "timestamp": "10:24 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1570",
+            "from": "vendedor",
+            "timestamp": "10:26 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1570",
+            "from": "vendedor",
+            "timestamp": "10:26 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1571",
+            "from": "vendedor",
+            "timestamp": "10:27 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1571",
+            "from": "vendedor",
+            "timestamp": "10:27 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1572",
+            "from": "vendedor",
+            "timestamp": "10:32 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1572",
+            "from": "vendedor",
+            "timestamp": "10:32 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1573",
+            "from": "vendedor",
+            "timestamp": "10:36 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1573",
+            "from": "vendedor",
+            "timestamp": "10:36 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1574",
+            "from": "vendedor",
+            "timestamp": "10:36 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1574",
+            "from": "vendedor",
+            "timestamp": "10:36 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1575",
+            "from": "vendedor",
+            "timestamp": "10:40 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1575",
+            "from": "vendedor",
+            "timestamp": "10:40 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1575",
+            "from": "vendedor",
+            "timestamp": "10:56 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "teste 1576",
+            "from": "vendedor",
+            "timestamp": "10:56 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "1577",
+            "from": "vendedor",
+            "timestamp": "10:56 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde! Está recebendo essa mensagem?",
+            "from": "cliente",
+            "timestamp": "10:57 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Sim, estou recebendo sua mensagem. Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "10:57 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Quanto tá a tinta epoc?",
+            "from": "cliente",
+            "timestamp": "11:01 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Os preços da tinta epóxi variam conforme o tamanho e a cor:\n\n- **Cores claras/base clara** (ex.: branco neve, cinza claro, creme):  \n  • Galão de 3,6 litros: R$ 359  \n  • Balde de 18 litros: R$ 1.549  \n\n- **Cores vibrantes** (ex.: azul, vermelho, verde segurança):  \n  • Galão de 3,6 litros: R$ 399  \n  • Balde de 18 litros: R$ 1.719  \n\nPara sua área de 42 m², recomendo 2 baldes de 18 litros (ou 3 galões de 3,6 litros) para garantir cobertura completa com duas demãos.  \n\nPrecisa de ajuda para escolher a cor ou informações sobre entrega?",
+            "from": "qwen",
+            "timestamp": "11:02 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\665775072647380_20250328113853.oga",
+            "from": "cliente",
+            "timestamp": "11:38 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Para uma área de 146 m² com três demãos, você precisará de:\n\n- **1 balde de 18 litros** (rende 130 m² por demão)  \n- **3 galões de 3,6 litros** (cada galão rende 26 m² por demão)  \n\n**Valor total (cores claras/base clara):**  \n- 1 balde de 18L: R$ 1.549  \n- 3 galões de 3,6L: R$ 1.077 (3 x R$ 359)  \n**Total: R$ 2.626**  \n\nSe optar por **cores vibrantes**, o valor será:  \n- 1 balde de 18L: R$ 1.719  \n- 3 galões de 3,6L: R$ 1.197 (3 x R$ 399)  \n**Total: R$ 2.916**  \n\nPrecisa de ajuda para escolher a cor ou informações sobre entrega?",
+            "from": "qwen",
+            "timestamp": "11:39 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\665775072647380_20250328113918.oga",
+            "from": "cliente",
+            "timestamp": "11:39 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Para a área de 146 m² com três demãos, o senhor precisará de:\n\n- **1 balde de 18 litros**  \n- **3 galões de 3,6 litros**  \n\n**Valor total (cores claras/base clara):**  \n- 1 balde de 18L: R$ 1.549  \n- 3 galões de 3,6L: R$ 1.077  \n**Total: R$ 2.626**  \n\nSe optar por **cores vibrantes**, o valor será:  \n- 1 balde de 18L: R$ 1.719  \n- 3 galões de 3,6L: R$ 1.197  \n**Total: R$ 2.916**  \n\nPrecisa de ajuda para escolher a cor ou informações sobre entrega?",
+            "from": "qwen",
+            "timestamp": "11:39 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\663270906287162_20250328114039.oga",
+            "from": "cliente",
+            "timestamp": "11:40 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Peço desculpas pelo equívoco anterior, Sr. André. Vamos corrigir o cálculo para sua área de 146 m² com três demãos:\n\n- **1 balde de 18L** rende 130 m² por demão  \n- **1 galão de 3,6L** rende 26 m² por demão  \n\nPara **três demãos em 146 m²**, você precisará de:  \n- **3 baldes de 18L** (cada balde cobre ~130 m² por demão)  \n\nIsso garantirá cobertura completa sem faltar material. O valor total para **cores claras** seria R$ 4.647 (3 x R$ 1.549).  \n\nReitero minhas sinceras desculpas pela informação incorreta anterior. Estou à disposição para esclarecer qualquer dúvida ou auxiliar no pedido.",
+            "from": "qwen",
+            "timestamp": "11:41 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\646645368258574_20250328114437.oga",
+            "from": "cliente",
+            "timestamp": "11:44 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Peço desculpas pelo erro anterior, Sr. André. Vamos corrigir:\n\nPara uma área de 146 m² com três demãos, você precisará de **3 baldes de 18 litros** (cada balde rende 130 m² por demão). \n\nValor total para cores claras: R$ 4.647 (3 x R$ 1.549). Para cores vibrantes: R$ 5.157 (3 x R$ 1.719).\n\nEstou à disposição para esclarecer qualquer dúvida ou auxiliar no pedido.",
+            "from": "qwen",
+            "timestamp": "11:44 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1587635268561090_20250328114528.oga",
+            "from": "cliente",
+            "timestamp": "11:45 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Peço desculpas pelo erro nos cálculos anteriores, Sr. André. Vamos corrigir de forma clara e precisa:\n\nPara uma área de **146 m² com três demãos**, você precisará de:  \n- **3 baldes de 18 litros** (cada balde cobre 130 m² por demão)  \n\n**Valor total:**  \n- **Cores claras:** R$ 4.647 (3 x R$ 1.549)  \n- **Cores vibrantes:** R$ 5.157 (3 x R$ 1.719)  \n\nEstou à disposição para esclarecer qualquer dúvida ou auxiliar no pedido. Como prefere prosseguir?",
+            "from": "qwen",
+            "timestamp": "11:45 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1006504391545152_20250328114639.oga",
+            "from": "cliente",
+            "timestamp": "11:46 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Peço sinceras desculpas pelo erro nos cálculos anteriores, Sr. André. Vamos corrigir de forma precisa:\n\nPara uma área de 146 m² com três demãos, você precisará de:\n- **3 baldes de 18 litros** (cada balde cobre 130 m² por demão)\n\nValor total:\n- **Cores claras:** R$ 4.647 (3 x R$ 1.549)\n- **Cores vibrantes:** R$ 5.157 (3 x R$ 1.719)\n\nReconheço que o cálculo anterior estava incorreto e agradeço pela sua paciência. Estou à disposição para esclarecer qualquer dúvida ou auxiliar no pedido. Como posso ajudar?",
+            "from": "qwen",
+            "timestamp": "11:47 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1006504391545152_20250328114704.oga",
+            "from": "cliente",
+            "timestamp": "11:47 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Peço sinceras desculpas pelo erro nos cálculos anteriores, Sr. André. Vamos corrigir de forma precisa:\n\nPara uma área de **146 m² com três demãos**, você precisará de:  \n- **3 baldes de 18 litros** (cada balde cobre 130 m² por demão)  \n\n**Valor total:**  \n- **Cores claras:** R$ 4.647 (3 x R$ 1.549)  \n- **Cores vibrantes:** R$ 5.157 (3 x R$ 1.719)  \n\nReconheço que o cálculo anterior estava incorreto e agradeço pela sua paciência. Estou à disposição para esclarecer qualquer dúvida ou auxiliar no pedido. Como posso ajudar?",
+            "from": "qwen",
+            "timestamp": "11:47 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\666019679697649_20250328114721.oga",
+            "from": "cliente",
+            "timestamp": "11:47 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Peço sinceras desculpas pelo erro nos cálculos anteriores, Sr. André. Vamos corrigir de forma precisa:\n\nPara uma área de **146 m² com três demãos**, você precisará de:  \n- **3 baldes de 18 litros** (cada balde cobre 130 m² por demão)  \n\n**Valor total:**  \n- **Cores claras:** R$ 4.647 (3 x R$ 1.549)  \n- **Cores vibrantes:** R$ 5.157 (3 x R$ 1.719)  \n\nReconheço que o cálculo anterior estava incorreto e agradeço pela sua paciência. Estou à disposição para esclarecer qualquer dúvida ou auxiliar no pedido. Como posso ajudar?",
+            "from": "qwen",
+            "timestamp": "11:47 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Seu cálculo está completamente errado",
+            "from": "cliente",
+            "timestamp": "11:47 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Peço sinceras desculpas pelo erro nos cálculos, Sr. André. Vamos refazer corretamente:\n\nPara uma área de 146 m² com três demãos:\n- Cada galão de 3,6L rende 26 m² por demão\n- Total necessário: 146 m² × 3 demãos = 438 m²\n- 438 m² ÷ 26 m²/galão = 16,84 galões → arredondamos para **17 galões de 3,6L**\n\nValor total:\n- Cores claras: 17 × R$ 359 = R$ 6.103\n- Cores vibrantes: 17 × R$ 399 = R$ 6.783\n\nRecomendo verificar também a opção de baldes (18L) para possível economia. Posso refazer o cálculo com baldes se preferir. Como deseja prosseguir?",
+            "from": "qwen",
+            "timestamp": "11:48 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "E quanto eu preciso para aplicar só duas demãos?",
+            "from": "cliente",
+            "timestamp": "11:49 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "E quanto eu preciso para aplicar só duas demãos?",
+            "from": "cliente",
+            "timestamp": "11:50 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "E quanto eu preciso para aplicar só duas demãos?",
+            "from": "cliente",
+            "timestamp": "11:50 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "E quanto eu preciso para aplicar duas demãos?",
+            "from": "cliente",
+            "timestamp": "11:51 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Para uma área de 146 m² com duas demãos, o senhor precisará de:\n\n- **11 galões de 3,6 litros** (cada galão rende 26 m² por demão)\n\n**Valor total:**\n- Cores claras: R$ 3.949 (11 x R$ 359)\n- Cores vibrantes: R$ 4.389 (11 x R$ 399)\n\nCaso prefira baldes de 18L, posso calcular essa opção também. Estou à disposição para esclarecer qualquer dúvida.",
+            "from": "qwen",
+            "timestamp": "11:51 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "O dono da MP tintas me disse que você estava terminantemente proibido de expor os cálculos dessa forma, ele me disse que era pra você mostrar pros clientes só o resultado dos cálculos e não os cálculos inteiros",
+            "from": "cliente",
+            "timestamp": "11:52 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Entendido, Sr. André. Agradeço pelo feedback e seguirei rigorosamente as orientações. Para uma área de **146 m² com duas demãos**, você precisará de **11 galões de 3,6 litros**.  \n\n**Valor total:**  \n- **Cores claras:** R$ 3.949  \n- **Cores vibrantes:** R$ 4.389  \n\nCaso prefira a opção com baldes de 18L, posso informar o resultado sem os cálculos. Como deseja prosseguir? Estou à disposição para auxiliar.",
+            "from": "qwen",
+            "timestamp": "11:52 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "12:33 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Olá!",
+            "from": "cliente",
+            "timestamp": "12:34 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1009619987773296_20250328124853.oga",
+            "from": "cliente",
+            "timestamp": "12:48 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1009619987773296_20250328124918.oga",
+            "from": "cliente",
+            "timestamp": "12:49 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "12:49 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1009619987773296_20250328124955.oga",
+            "from": "cliente",
+            "timestamp": "12:49 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "12:50 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "12:50 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "12:50 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "12:51 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:53 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:54 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:54 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:54 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:54 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:55 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:56 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:56 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:56 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:56 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:57 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:57 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:58 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:58 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:58 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:58 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "12:59 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "12:59 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:00 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:01 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:02 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:02 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:02 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:03 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:03 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:03 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:03 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:04 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "13:05 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:05 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "13:05 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:06 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "13:06 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:11 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:11 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "13:48 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde!",
+            "from": "cliente",
+            "timestamp": "13:56 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde, Sr. André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "13:56 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1865911447543821_20250328135719.oga",
+            "from": "cliente",
+            "timestamp": "13:57 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Para uma área de 170 m² com duas demãos, você precisará de 2 baldes de 18 litros e 3 galões de 3,6 litros.\n\n**Valor total (cores claras):**\n- 2 baldes de 18L: R$ 3.098\n- 3 galões de 3,6L: R$ 1.077\n**Total: R$ 4.175**\n\n**Para cores vibrantes:**\n- 2 baldes de 18L: R$ 3.438\n- 3 galões de 3,6L: R$ 1.197\n**Total: R$ 4.635**\n\nPosso ajudar com a escolha da cor ou informações sobre entrega?",
+            "from": "qwen",
+            "timestamp": "13:57 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\9708601172524873_20250328141745.oga",
+            "from": "cliente",
+            "timestamp": "14:17 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1189195492849551_20250328141830.oga",
+            "from": "cliente",
+            "timestamp": "14:18 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\2392212661150787_20250328141935.oga",
+            "from": "cliente",
+            "timestamp": "14:19 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\989661123291772_20250328142102.oga",
+            "from": "cliente",
+            "timestamp": "14:21 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Para uma área de 180 metros quadrados com duas demãos, você precisará de aproximadamente 14 galões de 3,6 litros ou 3 baldes de 18 litros. \n\nO valor total será:\n- Cores claras: R$ 4.647 (3 baldes x R$ 1.549)\n- Cores vibrantes: R$ 5.157 (3 baldes x R$ 1.719)\n\nPosso ajudar com a escolha da cor ou informações sobre entrega?",
+            "from": "qwen",
+            "timestamp": "14:21 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "14:37 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\3902553983392603_20250328144047.oga",
+            "from": "cliente",
+            "timestamp": "14:40 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Para uma área de 47 metros quadrados com duas demãos, você precisará de 4 galões de 3,6 litros.\n\nValor total:\n- Cores claras: R$ 1.436 (4 x R$ 359)\n- Cores vibrantes: R$ 1.596 (4 x R$ 399)\n\nPosso ajudar com a escolha da cor ou informações sobre entrega?",
+            "from": "qwen",
+            "timestamp": "14:40 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\2565569947118440_20250328144422.oga",
+            "from": "cliente",
+            "timestamp": "14:44 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde! Sim, tudo bem. Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "14:44 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "14:49 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa tarde! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "14:49 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1296386644995719_20250328145117.oga",
+            "from": "cliente",
+            "timestamp": "14:51 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Para uma área de 47 metros quadrados com duas demãos, você precisará de 4 galões de 3,6 litros.\n\nValor total:\n- Cores claras: R$ 1.436 \n- Cores vibrantes: R$ 1.596\n\nPosso ajudar com a escolha da cor ou informações sobre entrega?",
+            "from": "qwen",
+            "timestamp": "14:51 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\631969626335701_20250328145150.oga",
+            "from": "cliente",
+            "timestamp": "14:51 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "O número do nosso telefone fixo é (11) 2438-6416.",
+            "from": "qwen",
+            "timestamp": "14:52 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1009619987773296_20250328153828.oga",
+            "from": "cliente",
+            "timestamp": "15:38 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Para uma área de 35 metros quadrados com duas demãos, você precisará de 3 galões de 3,6 litros.\n\nValor total:\n- Cores claras: R$ 1.077 (3 x R$ 359)\n- Cores vibrantes: R$ 1.197 (3 x R$ 399)\n\nPosso ajudar com a escolha da cor ou informações sobre entrega?",
+            "from": "qwen",
+            "timestamp": "15:38 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\2836059793252334_20250328183943.oga",
+            "from": "cliente",
+            "timestamp": "18:39 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite! Tudo bem, como posso ajudá-lo(a)?",
+            "from": "qwen",
+            "timestamp": "18:39 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\2677892185743003_20250328184005.oga",
+            "from": "cliente",
+            "timestamp": "18:40 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Para uma tinta epóxi, os preços são:\n\nCores claras (ex.: branco neve, cinza claro, creme):\n- Galão 3,6L: R$ 359\n- Balde 18L: R$ 1.549\n\nCores vibrantes (ex.: azul, vermelho, verde segurança): \n- Galão 3,6L: R$ 399\n- Balde 18L: R$ 1.719\n\nPosso ajudar com mais informações sobre cores ou rendimento?",
+            "from": "qwen",
+            "timestamp": "18:40 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\505849962594229_20250328210958.oga",
+            "from": "cliente",
+            "timestamp": "21:10 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite, Sr. André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "21:10 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\1366576211053059_20250328211024.oga",
+            "from": "cliente",
+            "timestamp": "21:10 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "De acordo com o histórico, a última metragem que você pediu para orçar foi 35 metros quadrados, para a qual indiquei 3 galões de 3,6 litros com duas demãos.",
+            "from": "qwen",
+            "timestamp": "21:10 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Obrigado!!",
+            "from": "cliente",
+            "timestamp": "21:11 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "De nada, Sr. André! Se precisar de mais alguma informação sobre tintas epóxi, estou à disposição para ajudar.",
+            "from": "qwen",
+            "timestamp": "21:11 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi!",
+            "from": "cliente",
+            "timestamp": "23:32 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "23:32 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Tudo bem?",
+            "from": "cliente",
+            "timestamp": "23:32 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite! Tudo bem sim, Sr. André. Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "23:32 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\900476082091553_20250328233305.oga",
+            "from": "cliente",
+            "timestamp": "23:33 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Por favor, me diga como posso ajudá-lo. Estou à disposição para esclarecer suas dúvidas ou fazer um orçamento.",
+            "from": "qwen",
+            "timestamp": "23:33 28/03/25"
+        },
+        {
+            "type": "audio",
+            "content": "",
+            "media_url": "audio\\696944256227762_20250328233401.oga",
+            "from": "cliente",
+            "timestamp": "23:34 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "O preço da tinta epóxi branca (cor clara) é:\n\n- Galão 3,6L: R$ 359\n- Balde 18L: R$ 1.549\n\nPosso ajudar com o cálculo da quantidade necessária ou fornecer mais informações sobre a aplicação?",
+            "from": "qwen",
+            "timestamp": "23:34 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Oi",
+            "from": "cliente",
+            "timestamp": "23:34 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "23:35 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Tudo bem?",
+            "from": "cliente",
+            "timestamp": "23:37 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Tudo bem sim, Sr. André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "23:38 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite!",
+            "from": "cliente",
+            "timestamp": "23:38 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "23:38 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Lembra meu nome?",
+            "from": "cliente",
+            "timestamp": "23:38 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Sim, você é o André! Como posso ajudá-lo hoje?",
+            "from": "qwen",
+            "timestamp": "23:38 28/03/25"
+        },
+        {
+            "type": "text",
+            "content": "Boa noite",
+            "from": "cliente",
+            "timestamp": "23:44 28/03/25"
+        }
+    ],
+    "status": "processing"
+}

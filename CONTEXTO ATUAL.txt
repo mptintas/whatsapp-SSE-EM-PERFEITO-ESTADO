@@ -1,0 +1,103 @@
+Olá! seguem em anexo os principais módulos do meu projeto de chat.
+
+DESCRIÇÃO DO CHAT
+
+É um chat que conecta a api do whatsapp à api do Claude para atendimento automático e humano.
+
+Eu quero que o sistema fique o mais parecido possível, em termos de funcionamento, com o WhatsApp Web.
+
+O sistema está no app engine padrão do gcloud e está rodando normalmente, mas ainda precisa das seguintes alterações:
+
+
+ALTERAÇÕES NECESSÁRIAS
+
+
+1- Atualizar as mensagens na tela automaticamente assim que o sistema recebe ou envia uma mensagem. Isso precisa ocorrer automaticamente e sem delay.
+
+2- Exibir notificações para mensagem não lida na aba do navegador.
+
+3- Exibir notificações para mensagem não lida na lista de conversas na coluna esquerda da tela.
+
+4- Manter persistência das conversas selecionadas, exemplo: quando o usuário selecionar uma conversa, ela deve permanecer selecionada, mesmo que o usuário recarregar a página.
+
+5- Adicionar os sinais de confirmação de envio nas mensagens, assim como no whatsappweb - Importante: o api do whatsapp não dá a possibilidade de confirmação de leitura, apenas de envio (um sinal) e recebimento (dois sinais). Não tem a opção de pintar os sinais de azul quando o destinatário lê a mensagem.
+
+
+
+ESTRATÉGIA DE IMPLEMENTAÇÃO DAS ALTERAÇÕES:
+
+
+1. Atualização automática das mensagens
+Solução: Server-Sent Events (SSE)
+
+Compatível com App Engine padrão 
+Permite comunicação unidirecional do servidor para o cliente
+Implementação:
+Criar endpoint SSE no Flask que mantenha conexão aberta
+Modificar handle_incoming_message para notificar clientes conectados
+Desenvolver cliente JavaScript para processar eventos e atualizar a UI
+2. Notificações na aba do navegador
+Solução recomendada: Web Notifications API + Page Visibility API
+
+Implementar contador no título da página quando minimizada
+Usar Notification API para notificações desktop
+Armazenar estado de leitura para cada conversa
+3. Indicadores de mensagens não lidas
+Solução recomendada: Modelo de dados expandido
+
+Adicionar campo unread_count no modelo de conversa
+Implementar badges visuais na lista de conversas
+Atualizar contadores quando mensagens são recebidas/visualizadas
+4. Persistência de conversas selecionadas
+Solução recomendada: localStorage + URL Parameters
+
+Armazenar ID da conversa ativa no localStorage
+Opcionalmente, usar parâmetros de URL para compartilhamento direto
+Restaurar estado ao carregar a página
+5. Sinais de confirmação de envio
+Solução recomendada: Status de mensagem + Indicadores visuais
+
+Adicionar campo status nas mensagens (sending, sent, delivered)
+Implementar ícones correspondentes (um check, dois checks)
+Atualizar status com base nas respostas da API do WhatsApp
+
+
+As alterações seguirão um plano e serão implementadas por etapas, de acordo com um planejamento inicial. As alterações serão realizadas módulo por módulo e da seguinte forma:
+
+1- Todas as alterações serão criadas em novos arquivos, módulos externos, e chamadas pelos módulos existentes.
+
+2- Primeiro serão criados os módulos novos, depois serão adicionadas as chamadas nos módulos existentes.
+
+3- serão criados apenas 3 módulos, no máximo. 
+
+
+
+
+ETAPA EM QUE ESTAMOS:
+
+
+
+* defina quais serão esses módulos novos e descreva detalhadamente o que cada um deles fará e como se integrarão aos módulos existentes. Essa descrição será usada como instrução para futura criação dos scripts, portanto ela precisa ser ampla, detalhada e precisa.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

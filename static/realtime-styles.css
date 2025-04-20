@@ -1,0 +1,369 @@
+/*
+ * realtime-styles.css
+ * Estilos complementares para as funcionalidades de tempo real
+ * MP Tintas - WhatsApp Web Admin
+ */
+
+/* ===== INDICADOR DE STATUS DE CONEXÃO ===== */
+.connection-status {
+    position: fixed;
+    bottom: 15px;
+    left: 15px;
+    z-index: 100;
+}
+
+.status-indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.status-indicator.online {
+    background-color: #25D366;
+}
+
+.status-indicator.offline {
+    background-color: #F15C6D;
+}
+
+.status-indicator:hover {
+    transform: scale(1.2);
+}
+
+/* ===== MENSAGENS NÃO LIDAS ===== */
+.unread-badge {
+    background-color: #25D366;
+    color: white;
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    margin-left: 8px;
+    padding: 0 4px;
+}
+
+.conversation-item.has-unread {
+    background-color: rgba(37, 211, 102, 0.1);
+    font-weight: bold;
+}
+
+.message-preview {
+    font-size: 12px;
+    color: #666;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+/* ===== STATUS DE MENSAGENS ===== */
+.message-status {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 5px;
+    font-size: 12px;
+}
+
+.status-sending .message-status {
+    color: #999;
+}
+
+.status-sent .message-status {
+    color: #999;
+}
+
+.status-delivered .message-status {
+    color: #25D366;
+}
+
+.status-failed .message-status {
+    color: #F15C6D;
+}
+
+/* Mensagem temporária com animação de fade */
+.temp-message {
+    opacity: 0.7;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 0.8; }
+    100% { opacity: 0.5; }
+}
+
+/* ===== COMPARTILHAMENTO ===== */
+.share-button {
+    background-color: #25D366;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    margin-left: 10px;
+    transition: background-color 0.3s;
+}
+
+.share-button:hover {
+    background-color: #128C7E;
+}
+
+/* Notificação de cópia */
+.copy-notification {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    z-index: 1000;
+    animation: fadeInOut 2s ease-in-out;
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translate(-50%, 20px); }
+    20% { opacity: 1; transform: translate(-50%, 0); }
+    80% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -20px); }
+}
+
+/* ===== SELETOR DE LOCALIZAÇÃO ===== */
+.location-map {
+    width: 100%;
+    height: 300px;
+    background-color: #f0f0f0;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    overflow: hidden;
+}
+
+.location-controls {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.location-controls button {
+    padding: 10px 15px;
+    background-color: #25D366;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    flex: 1;
+    transition: background-color 0.3s;
+}
+
+.location-controls button:hover {
+    background-color: #128C7E;
+}
+
+.location-controls button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.location-controls button i {
+    margin-right: 5px;
+}
+
+/* ===== MENU DE COMANDOS ===== */
+.command-menu {
+    position: absolute;
+    bottom: 60px;
+    left: 10px;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    width: 300px;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.command-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.command-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #128C7E;
+}
+
+.command-header .close {
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.command-list {
+    padding: 5px 0;
+}
+
+.command-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s;
+}
+
+.command-item:hover {
+    background-color: #f5f5f5;
+}
+
+.command-name {
+    font-weight: bold;
+    margin-right: 10px;
+    color: #128C7E;
+}
+
+.command-description {
+    font-size: 13px;
+    color: #666;
+}
+
+/* ===== RESPONSIVIDADE ===== */
+@media screen and (max-width: 768px) {
+    .connection-status {
+        bottom: 10px;
+        left: 10px;
+    }
+    
+    .command-menu {
+        width: calc(100% - 20px);
+        left: 10px;
+        max-height: 300px;
+    }
+    
+    .share-button {
+        width: 32px;
+        height: 32px;
+    }
+}
+
+/* ===== TOGGLE PARA PAINEL DE IA ===== */
+.ai-actions {
+    display: flex;
+    align-items: center;
+}
+
+.ai-actions .action-btn {
+    background: none;
+    border: none;
+    color: #128C7E;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 5px;
+    transition: color 0.3s;
+}
+
+.ai-actions .action-btn:hover {
+    color: #25D366;
+}
+
+/* Estado colapsado do painel IA */
+.right-column.collapsed {
+    width: 50px;
+    min-width: 50px;
+}
+
+.right-column.collapsed .ai-title {
+    display: none;
+}
+
+.right-column.collapsed .ai-message-area {
+    display: none;
+}
+
+/* Animação para transição de painel */
+.right-column {
+    transition: width 0.3s ease;
+}
+
+/* ===== TEMA ESCURO (OPCIONAL) ===== */
+.dark-mode .status-indicator.online {
+    background-color: #00E676;
+}
+
+.dark-mode .status-indicator.offline {
+    background-color: #FF5252;
+}
+
+.dark-mode .command-menu {
+    background-color: #222;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.dark-mode .command-header {
+    border-color: #444;
+}
+
+.dark-mode .command-header h3 {
+    color: #25D366;
+}
+
+.dark-mode .command-item:hover {
+    background-color: #333;
+}
+
+.dark-mode .command-name {
+    color: #25D366;
+}
+
+.dark-mode .command-description {
+    color: #aaa;
+}
+
+.dark-mode .share-button {
+    background-color: #128C7E;
+}
+
+.dark-mode .share-button:hover {
+    background-color: #25D366;
+}
+
+/* ===== Notificações em Tempo Real ===== */
+@keyframes newMessage {
+    0% { transform: scale(0.95); opacity: 0.7; }
+    50% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.conversation-item.new-message {
+    animation: newMessage 0.5s ease;
+}
+
+/* Animação do botão de status na barra superior */
+@keyframes statusPing {
+    0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(37, 211, 102, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+}
+
+.status-indicator.online {
+    animation: statusPing 2s infinite;
+}

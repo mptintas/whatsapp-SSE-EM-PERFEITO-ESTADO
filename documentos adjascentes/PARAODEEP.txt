@@ -1,0 +1,1917 @@
+# BACKUP CRIADO EM: 2025-03-31 09:59:43
+# Total de arquivos: 4
+
+# INÍCIO DO ARQUIVO: main.py (1/4) 
+from WhatsApp_Manager import WhatsAppManager
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect
+import os
+import logging
+from google.cloud import storage
+
+# Configuração de logging
+logging.basicConfig(level=logging.INFO, 
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    handlers=[logging.StreamHandler()])
+logger = logging.getLogger(__name__)
+
+app = Flask(__name__, template_folder="templates", static_folder="static")
+
+# Inicializa o gerenciador do WhatsApp
+whatsapp_manager = WhatsAppManager()
+
+# Inicializa o cliente do Google Cloud Storage
+storage_client = storage.Client()
+media_bucket_name = "aerial-acre-455118-a9-media"
+
+# Rota para servir arquivos de mídia
+@app.route('/media/<path:filename>')
+def serve_media(filename):
+    try:
+        logger.info(f"Solicitação de mídia: {filename}")
+        
+        # Tenta servir do Google Cloud Storage
+        bucket = storage_client.bucket(media_bucket_name)
+        blob = bucket.blob(filename)
+        
+        if blob.exists():
+            # Gera URL pública e redireciona
+            public_url = blob.public_url
+            logger.info(f"Redirecionando para URL pública: {public_url}")
+            return redirect(public_url)
+        
+        # Se não encontrou no GCS, tenta localmente (para desenvolvimento)
+        # Determina o tipo de mídia com base no caminho
+        if filename.startswith('images/'):
+            return send_from_directory('media', filename)
+        elif filename.startswith('audio/'):
+            return send_from_directory('media', filename)
+        elif filename.startswith('video/'):
+            return send_from_directory('media', filename)
+        elif filename.startswith('documents/'):
+            return send_from_directory('media', filename)
+        else:
+            logger.warning(f"Tipo de mídia não suportado: {filename}")
+            return "Arquivo não encontrado", 404
+    except Exception as e:
+        logger.error(f"Erro ao servir mídia {filename}: {str(e)}")
+        # Tenta localmente como fallback
+        try:
+            # Determina o tipo de mídia com base no caminho
+            if filename.startswith('images/') or filename.startswith('audio/') or filename.startswith('video/') or filename.startswith('documents/'):
+                return send_from_directory('media', filename)
+            else:
+                return "Arquivo não encontrado", 404
+        except:
+            return "Erro ao servir mídia", 500
+
+@app.route('/')
+def index():
+    try:
+        # Renderiza a página inicial com as conversas existentes
+        conversations = whatsapp_manager.conversations
+        logger.info(f"Página inicial carregada com {len(conversations)} conversas")
+        return render_template('index.html', conversations=conversations)
+    except Exception as e:
+        logger.error(f"Erro na página inicial: {str(e)}")
+        return "Erro ao carregar a página", 500
+        
+@app.route('/conversation/<phone_number>')
+def get_conversation(phone_number):
+    try:
+        # Use o nome original do método
+        conversation = whatsapp_manager.get_conversation_history(phone_number)
+        logger.info(f"Conversa solicitada: {phone_number}")
+        return jsonify(conversation)
+    except Exception as e:
+        logger.error(f"Erro ao obter conversa {phone_number}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/send_location', methods=['POST'])
+def send_location():
+    try:
+        data = request.json
+        to_number = data.get("to_number")
+        latitude = data.get("latitude")
+        longitude = data.get("longitude")
+        
+        logger.info(f"Enviando localização para {to_number}: {latitude}, {longitude}")
+        
+        # Crie uma mensagem com a localização
+        message = f"Minha localização atual: https://maps.google.com/?q={latitude},{longitude}"
+        
+        # Use a função existente para enviar mensagem de texto
+        success = whatsapp_manager.send_message_to_whatsapp(to_number, message)
+        
+        if success:
+            logger.info(f"Localização enviada com sucesso para {to_number}")
+            return jsonify({"status": "success"}), 200
+        else:
+            logger.warning(f"Falha ao enviar localização para {to_number}")
+            return jsonify({"status": "error"}), 500
+    except Exception as e:
+        logger.error(f"Erro ao enviar localização: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/send_message', methods=['POST'])
+def send_message():
+    try:
+        print("ROTA SEND_MESSAGE: Dados recebidos:", request.json)
+        # Envia uma mensagem para um número via API do WhatsApp
+        data = request.json
+        to_number = data.get("to_number")
+        message = data.get("message")
+        media_path = data.get("media_path")
+        media_type = data.get("media_type")
+        
+        logger.info(f"Enviando mensagem para {to_number}. Mídia: {media_type if media_type else 'Nenhuma'}")
+        
+        if media_path and media_type:
+            success = whatsapp_manager.send_message_to_whatsapp(to_number, message, media_type, media_path)
+        else:
+            success = whatsapp_manager.send_message_to_whatsapp(to_number, message)
+            
+        if success:
+            logger.info(f"Mensagem enviada com sucesso para {to_number}")
+            return jsonify({"status": "success"}), 200
+        else:
+            logger.warning(f"Falha ao enviar mensagem para {to_number}")
+            return jsonify({"status": "error"}), 500
+    except Exception as e:
+        logger.error(f"Erro ao enviar mensagem: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/toggle_mode/<phone_number>', methods=['POST'])
+def toggle_conversation_mode(phone_number):
+    try:
+        # Alterna o modo da conversa entre automático e humano
+        new_mode = whatsapp_manager.toggle_conversation_mode(phone_number)
+        if new_mode:
+            logger.info(f"Modo de conversa alterado para {phone_number}: {new_mode}")
+            return jsonify({"status": "success", "mode": new_mode}), 200
+        else:
+            logger.warning(f"Conversa não encontrada para alternar modo: {phone_number}")
+            return jsonify({"status": "error", "message": "Conversa não encontrada"}), 404
+    except Exception as e:
+        logger.error(f"Erro ao alternar modo de conversa: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/upload_media', methods=['POST'])
+def upload_media():
+    try:
+        # Endpoint para fazer upload de mídia do cliente
+        if 'file' not in request.files:
+            logger.warning("Tentativa de upload sem arquivo")
+            return jsonify({"status": "error", "message": "Nenhum arquivo enviado"}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            logger.warning("Nome de arquivo vazio no upload")
+            return jsonify({"status": "error", "message": "Nome de arquivo vazio"}), 400
+        
+        # Determinar o tipo de mídia
+        if file.content_type.startswith('image/'):
+            media_type = 'images'
+        elif file.content_type.startswith('audio/'):
+            media_type = 'audio'
+        elif file.content_type.startswith('video/'):
+            media_type = 'video'
+        else:
+            media_type = 'documents'
+        
+        # Salvar o arquivo no Google Cloud Storage
+        filename = f"{file.filename}"
+        gcs_path = f"{media_type}/{filename}"
+        
+        # Fazer upload para o GCS
+        bucket = storage_client.bucket(media_bucket_name)
+        blob = bucket.blob(gcs_path)
+        blob.upload_from_string(
+            file.read(),
+            content_type=file.content_type
+        )
+        
+        # Tornar o arquivo publicamente acessível
+        blob.make_public()
+        
+        logger.info(f"Mídia carregada para o GCS: {gcs_path}")
+        
+        # Para desenvolvimento local, também salva localmente
+        try:
+            media_dir = os.path.join('media', media_type)
+            if not os.path.exists(media_dir):
+                os.makedirs(media_dir)
+                
+            filepath = os.path.join(media_dir, filename)
+            file.seek(0)  # Voltar ao início do arquivo
+            file.save(filepath)
+            logger.info(f"Mídia também salva localmente em: {filepath}")
+        except Exception as e:
+            logger.warning(f"Não foi possível salvar localmente (isso é normal no App Engine): {str(e)}")
+        
+        return jsonify({
+            "status": "success", 
+            "media_path": gcs_path, 
+            "media_type": media_type.rstrip('s')  # Remove o 's' para corresponder ao tipo da API
+        }), 200
+    except Exception as e:
+        logger.error(f"Erro no upload de mídia: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/webhook', methods=['GET'])
+def verify_webhook():
+    try:
+        # Verifica o webhook da Meta
+        mode = request.args.get("hub.mode")
+        token = request.args.get("hub.verify_token")
+        challenge = request.args.get("hub.challenge")
+
+        if mode and token == whatsapp_manager.VERIFICATION_TOKEN:
+            logger.info("Webhook verificado com sucesso!")
+            return challenge, 200
+        else:
+            logger.warning("Verificação de webhook falhou: token inválido")
+            return "Token inválido", 403
+    except Exception as e:
+        logger.error(f"Erro na verificação do webhook: {str(e)}")
+        return "Erro na verificação", 500
+
+@app.route('/webhook', methods=['POST'])
+
+
+def webhook():
+    # Processa mensagens recebidas via webhook
+    try:
+        data = request.json
+        logger.info("Mensagem recebida via webhook")
+        whatsapp_manager.handle_incoming_message(data)
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        logger.error(f"Erro ao processar mensagem do webhook: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.after_request
+def add_header(response):
+    # Adiciona cabeçalhos para evitar cache
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+if __name__ == "__main__":
+    @app.route('/debug_media_send', methods=['POST'])
+    def debug_media_send():
+        try:
+            data = request.json
+            to_number = data.get("to_number")
+            message = data.get("message", "Teste de diagnóstico")
+            media_path = data.get("media_path")
+            media_type = data.get("media_type", "image")
+            
+            logger.info(f"DEBUG ROTA: Iniciando teste de envio de mídia para {to_number}")
+            logger.info(f"DEBUG ROTA: Mídia: {media_type} - {media_path}")
+            
+            # Forçar modo humano para teste
+            if to_number in whatsapp_manager.conversations:
+                original_mode = whatsapp_manager.conversations[to_number].get("mode", "auto")
+                whatsapp_manager.conversations[to_number]["mode"] = "human"
+                logger.info(f"DEBUG ROTA: Modo original: {original_mode}, alterado para: human")
+            
+            # Tenta enviar a mensagem
+            result = whatsapp_manager.send_message_to_whatsapp(to_number, message, media_type, media_path)
+            
+            # Restaura o modo original
+            if to_number in whatsapp_manager.conversations:
+                whatsapp_manager.conversations[to_number]["mode"] = original_mode
+                logger.info(f"DEBUG ROTA: Restaurado modo: {original_mode}")
+            
+            # Retorna o resultado
+            return jsonify({
+                "status": "success" if result else "error",
+                "message": "Mensagem enviada com sucesso" if result else "Falha ao enviar mensagem"
+            })
+        except Exception as e:
+            logger.error(f"DEBUG ROTA ERROR: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return jsonify({"status": "error", "message": str(e)}), 500
+    logger.info("Iniciando servidor Flask na porta 5000...")
+
+    # Adicione essa rota ao arquivo main.py antes da linha "if __name__ == "__main__":"
+
+    @app.route('/test_audio_send', methods=['GET'])
+    def test_audio_send():
+        try:
+            # Use um arquivo de áudio de teste que sabemos que existe no GCS
+            test_audio_path = "audio/test_audio.ogg"  # Ajuste para um caminho que exista no seu bucket
+            test_phone = "5511964648888"  # Ajuste para um número válido
+            
+            logger.info(f"TESTE DE ÁUDIO: Iniciando teste com {test_audio_path}")
+            
+            # Teste direto da função de upload de mídia
+            mime_type = "audio/ogg"
+            media_id = whatsapp_manager.media_handler.upload_media(test_audio_path, whatsapp_manager.WHATSAPP_TOKEN, mime_type)
+            
+            logger.info(f"TESTE DE ÁUDIO: Resultado do upload: {media_id}")
+            
+            if not media_id:
+                return jsonify({"status": "error", "stage": "upload", "message": "Falha ao fazer upload do áudio"})
+            
+            # Tenta enviar a mensagem
+            result = whatsapp_manager.send_message_to_whatsapp(test_phone, "", "audio", test_audio_path)
+            
+            logger.info(f"TESTE DE ÁUDIO: Resultado do envio: {result}")
+            
+            return jsonify({
+                "status": "success" if result else "error",
+                "stage": "send" if media_id else "upload",
+                "media_id": media_id,
+                "message": "Teste completo" if result else "Falha no envio"
+            })
+        except Exception as e:
+            logger.error(f"TESTE DE ÁUDIO ERROR: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return jsonify({"status": "error", "message": str(e), "traceback": traceback.format_exc()}), 500
+    app.run(port=5000, debug=True)
+# FIM DO ARQUIVO: main.py 
+
+# INÍCIO DO ARQUIVO: WhatsApp_Manager.py (2/4) 
+
+import env_config
+import storage_manager
+import requests
+import os
+import json
+from datetime import datetime
+from qwen1 import process_message
+from media_handler import MediaHandler
+from audio_processor import AudioProcessor
+from google.cloud import storage
+
+class WhatsAppManager:
+    def __init__(self):
+        self.VERIFICATION_TOKEN = "EAAJjZBmxpkYgBOyEx31oz53K3694dZCg81dZA17ym3W9rCFjmax29HMwcdgq8iZBawUoNw1vzTlYSGAbIWTN4MRkWZBA0wMpwfLfI6dHaaMyhUZC1qZADUbZBZCNMhOw8a0AI2sBHpBLtbEbMrhBGZBNh81teK7z0ZBX338LZBTHRXYr96YTytPiv1JRD5Vyiis5pl5yhpUHzjHDhgZDZD"
+        self.WHATSAPP_TOKEN = "EAAJjZBmxpkYgBOyEx31oz53K3694dZCg81dZA17ym3W9rCFjmax29HMwcdgq8iZBawUoNw1vzTlYSGAbIWTN4MRkWZBA0wMpwfLfI6dHaaMyhUZC1qZADUbZBZCNMhOw8a0AI2sBHpBLtbEbMrhBGZBNh81teK7z0ZBX338LZBTHRXYr96YTytPiv1JRD5Vyiis5pl5yhpUHzjHDhgZDZD"
+        self.PHONE_NUMBER_ID = "637338086121702"
+        self.conversations = {}
+        
+        # Configuração do Google Cloud Storage
+        self.storage_client = storage.Client()
+        self.CONVERSATION_BUCKET = "aerial-acre-455118-a9-conversations"
+        
+        self.media_handler = MediaHandler(
+            phone_number_id=self.PHONE_NUMBER_ID, 
+            whatsapp_token=self.WHATSAPP_TOKEN
+        )
+        
+        # Para compatibilidade local, cria o diretório de conversas se estiver rodando localmente
+        self.CONVERSATION_DIR = "conversations"
+        if not os.path.exists(self.CONVERSATION_DIR):
+            os.makedirs(self.CONVERSATION_DIR)
+            
+        self.load_conversations()
+        self.audio_processor = AudioProcessor(model_size="base")
+
+    def get_conversation_history(self, phone_number):
+        return self.conversations.get(phone_number, {})
+    
+    def toggle_conversation_mode(self, phone_number):
+        if phone_number in self.conversations:
+            current_mode = self.conversations[phone_number].get("mode", "auto")
+            new_mode = "human" if current_mode == "auto" else "auto"
+            self.conversations[phone_number]["mode"] = new_mode
+            self.save_conversation(phone_number)
+            print(f"Modo da conversa com {phone_number} alterado para: {new_mode}")
+            return new_mode
+        print(f"Tentativa de alternar modo para número inexistente: {phone_number}")
+        return None
+
+    def load_conversations(self):
+        try:
+            # Carregar conversas usando o gerenciador de armazenamento
+            print("Carregando conversas...")
+            
+            # No GCS, vamos listar todos os arquivos no bucket
+            if env_config.IS_CLOUD_ENVIRONMENT:
+                storage_client = storage.Client()
+                bucket = storage_client.bucket(env_config.CONVERSATIONS_BUCKET)
+                blobs = bucket.list_blobs()
+                
+                for blob in blobs:
+                    if blob.name.endswith('.json'):
+                        try:
+                            phone_number = blob.name.split(".")[0]
+                            data = storage_manager.load_json(blob.name)
+                            
+                            if data:
+                                # Processamento normal do arquivo de conversa
+                                self.conversations[phone_number] = data
+                                # Garantir que tenha o campo mode
+                                if "mode" not in self.conversations[phone_number]:
+                                    self.conversations[phone_number]["mode"] = "auto"
+                        except Exception as e:
+                            print(f"Erro ao carregar arquivo {blob.name}: {str(e)}")
+            else:
+                # Localmente, vamos listar arquivos no diretório
+                if not os.path.exists(env_config.LOCAL_CONVERSATIONS_DIR):
+                    os.makedirs(env_config.LOCAL_CONVERSATIONS_DIR)
+                    return
+                    
+                for filename in os.listdir(env_config.LOCAL_CONVERSATIONS_DIR):
+                    if filename.endswith('.json'):
+                        try:
+                            phone_number = filename.split(".")[0]
+                            filepath = os.path.join(env_config.LOCAL_CONVERSATIONS_DIR, filename)
+                            data = storage_manager.load_json(filepath)
+                            
+                            if data:
+                                # Processamento normal do arquivo de conversa
+                                self.conversations[phone_number] = data
+                                # Garantir que tenha o campo mode
+                                if "mode" not in self.conversations[phone_number]:
+                                    self.conversations[phone_number]["mode"] = "auto"
+                        except Exception as e:
+                            print(f"Erro ao carregar arquivo {filepath}: {str(e)}")
+                
+            print(f"{len(self.conversations)} conversas carregadas.")
+        except Exception as e:
+            print(f"Erro ao carregar conversas: {str(e)}")
+    def _load_conversations_local(self):
+        """Método auxiliar para carregar conversas do sistema de arquivos local (apenas para desenvolvimento)"""
+        try:
+            if not os.path.exists(self.CONVERSATION_DIR):
+                os.makedirs(self.CONVERSATION_DIR)
+                print("Diretório de conversas criado.")
+                return
+                
+            for filename in os.listdir(self.CONVERSATION_DIR):
+                if filename.endswith('.json'):
+                    phone_number = filename.split(".")[0]
+                    filepath = os.path.join(self.CONVERSATION_DIR, filename)
+                    try:
+                        with open(filepath, "r", encoding='utf-8') as file:
+                            data = json.load(file)
+                            
+                            # Converte formato antigo para novo formato se necessário
+                            if "messages" in data and isinstance(data["messages"], list):
+                                self.conversations[phone_number] = {
+                                    "name": data.get("name", "Cliente"),
+                                    "profile_pic": data.get("profile_pic", ""),
+                                    "mode": data.get("mode", "auto"),
+                                    "messages": []
+                                }
+                                
+                                for msg in data["messages"]:
+                                    if "text" in msg and "type" not in msg:
+                                        self.conversations[phone_number]["messages"].append({
+                                            "type": "text",
+                                            "content": msg["text"],
+                                            "from": msg["from"],
+                                            "timestamp": msg.get("timestamp", datetime.now().strftime("%H:%M %d/%m/%y"))
+                                        })
+                                    else:
+                                        self.conversations[phone_number]["messages"].append(msg)
+                            else:
+                                self.conversations[phone_number] = data
+                            
+                            if "mode" not in self.conversations[phone_number]:
+                                self.conversations[phone_number]["mode"] = "auto"
+                    except Exception as e:
+                        print(f"Erro ao carregar arquivo local {filepath}: {str(e)}")
+                        continue
+                        
+            print(f"{len(self.conversations)} conversas carregadas localmente.")
+        except Exception as e:
+            print(f"Erro ao carregar conversas localmente: {str(e)}")
+
+    def save_conversation(self, phone_number):
+        try:
+            # Obter os dados da conversa
+            conversation_data = self.conversations.get(phone_number, {})
+            
+            # Caminho do arquivo
+            file_path = f"{phone_number}.json"
+            
+            # Salvar usando o gerenciador de armazenamento
+            storage_manager.save_json(file_path, conversation_data)
+            print(f"Conversa com {phone_number} salva.")
+            
+        except Exception as e:
+            print(f"Erro ao salvar conversa: {str(e)}")
+
+    def _save_conversation_local(self, phone_number):
+        """Método auxiliar para salvar conversas localmente (apenas para desenvolvimento)"""
+        try:
+            if not os.path.exists(self.CONVERSATION_DIR):
+                os.makedirs(self.CONVERSATION_DIR)
+                
+            filepath = os.path.join(self.CONVERSATION_DIR, f"{phone_number}.json")
+            with open(filepath, "w", encoding='utf-8') as file:
+                json.dump(self.conversations.get(phone_number, {}), file, indent=4, ensure_ascii=False)
+            print(f"Conversa com {phone_number} salva localmente.")
+        except Exception as e:
+            print(f"Erro ao salvar conversa localmente: {str(e)}")
+
+    def handle_incoming_message(self, data):
+        try:
+            print(f"Dados recebidos via webhook: {data}")
+            if "messages" in data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}):
+                phone_number = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("wa_id", "")
+                client_name = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("profile", {}).get("name", "Desconhecido")
+                
+                # Inicializa a conversa se não existir
+                if phone_number not in self.conversations:
+                    self.conversations[phone_number] = {
+                        "name": client_name,
+                        "profile_pic": "",
+                        "mode": "auto",
+                        "messages": [],
+                        "processed_message_ids": []  # Inicializa a lista de IDs processados
+                    }
+                
+                # Verifica se existe o campo processed_message_ids
+                if "processed_message_ids" not in self.conversations[phone_number]:
+                    self.conversations[phone_number]["processed_message_ids"] = []
+                
+                message = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("messages", [{}])[0]
+                message_id = message.get("id", "")
+                
+                # Verifica se a mensagem já foi processada
+                if message_id in self.conversations[phone_number]["processed_message_ids"]:
+                    print(f"Mensagem {message_id} já foi processada anteriormente. Ignorando.")
+                    return
+                
+                profile_pic = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("profile", {}).get("profile_picture", "")
+                if profile_pic:
+                    print(f"FOTO DE PERFIL DETECTADA: {profile_pic}")
+                    self.conversations[phone_number]["profile_pic"] = profile_pic
+                
+                message_type = message.get("type", "")
+                message_content = None
+                media_url = None
+                
+                if message_type == "text":
+                    message_content = message.get("text", {}).get("body", "")
+                    media_url = None
+                    message_obj = {
+                        "type": "text",
+                        "content": message_content,
+                        "from": "cliente",
+                        "timestamp": datetime.now().strftime("%H:%M %d/%m/%y")
+                    }
+                    
+                elif message_type in ["image", "audio", "video", "document"]:
+                    media_id = message.get(message_type, {}).get("id", "")
+                    print(f"DEBUG - ID de mídia de {message_type} recebido: {media_id}")
+                    
+                    if not media_id:
+                        print(f"ERRO - ID de mídia de {message_type} está vazio ou nulo!")
+                        media_url = None
+                    else:
+                        media_url = self.media_handler.download_media(media_id, self.WHATSAPP_TOKEN)
+                        print(f"Mídia baixada com URL: {media_url}")
+                    
+                    caption = message.get(message_type, {}).get("caption", "")
+                    
+                    # Processar áudio para texto se for mensagem de áudio
+                    transcription = ""
+                    
+                    if message_type == "audio" and media_url:
+                        # Verificar se media_url já tem o prefixo "media\"
+                        audio_path = media_url
+                        if not audio_path.startswith('media\\') and not audio_path.startswith('media/'):
+                            audio_path = os.path.join('media', audio_path)
+                        
+                        print(f"Caminho para transcrição: {audio_path}")
+                        # Transcrever o áudio
+                        transcription = self.audio_processor.transcribe_audio(audio_path)
+                        print(f"Áudio transcrito: {transcription}")
+                    
+                    message_obj = {
+                        "type": message_type,
+                        "content": caption,
+                        "media_url": media_url,
+                        "from": "cliente",
+                        "timestamp": datetime.now().strftime("%H:%M %d/%m/%y")
+                    }
+                    
+                    # Adicionar a transcrição ao objeto da mensagem, se houver
+                    if message_type == "audio" and transcription:
+                        message_obj["transcription"] = transcription
+                else:
+                    print(f"Tipo de mensagem desconhecido: {message_type}")
+                    return
+                
+                self.conversations[phone_number]["messages"].append(message_obj)
+                
+                # Após processar a mensagem, adiciona o ID à lista de processados
+                self.conversations[phone_number]["processed_message_ids"].append(message_id)
+                self.save_conversation(phone_number)
+                
+                print(f"Mensagem do cliente {client_name} ({phone_number}) recebida: Tipo={message_type}")
+
+                if self.conversations[phone_number]["mode"] == "auto":
+                    self.conversations[phone_number]["status"] = "processing"
+                    self.save_conversation(phone_number)
+
+                    resposta_qwen = None
+                    try:
+                        if message_type == "text":
+                            resposta_qwen = process_message(message_content, phone_number)
+                        elif message_type == "audio" and transcription:
+                        # Usar o texto transcrito do áudio para processar a resposta
+                            resposta_qwen = process_message(transcription, phone_number)
+                        else:
+                            media_desc = f"[Cliente enviou {message_type}]"
+                            if caption:
+                                media_desc += f" com a legenda: '{caption}'"
+                            resposta_qwen = process_message(media_desc, phone_number)
+        
+                        # Enviar a resposta ao cliente
+                        if resposta_qwen:
+                            self.send_message_to_whatsapp(phone_number, resposta_qwen)
+        
+                        # Atualizar status para "idle" após processamento bem-sucedido
+                        self.conversations[phone_number]["status"] = "idle"
+                        self.save_conversation(phone_number)
+                    except Exception as e:
+                        print(f"Erro ao processar resposta automática: {str(e)}")
+                        # Atualizar status para "error" em caso de falha
+                        self.conversations[phone_number]["status"] = "error"
+                        self.save_conversation(phone_number)
+                        import traceback
+                        traceback.print_exc()
+
+        except Exception as e:
+            print(f"Erro ao processar mensagem: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+   # Substitua toda a função send_message_to_whatsapp no arquivo WhatsApp_Manager.py
+
+    def send_message_to_whatsapp(self, to_number, message, media_type=None, media_path=None):
+        try:
+            print(f"DEBUG: Iniciando envio - Tipo: {media_type}, Mídia: {media_path}")
+            
+            url = f"https://graph.facebook.com/v16.0/{self.PHONE_NUMBER_ID}/messages"
+            headers = {
+                "Authorization": f"Bearer {self.WHATSAPP_TOKEN}",
+                "Content-Type": "application/json"
+            }
+
+            # Determina o modo atual da conversa (auto ou humano)
+            if to_number not in self.conversations:
+                self.conversations[to_number] = {
+                    "name": "Desconhecido",
+                    "profile_pic": "",
+                    "mode": "auto",
+                    "messages": []
+                }
+            
+            sender = "qwen" if self.conversations[to_number]["mode"] == "auto" else "vendedor"
+            timestamp = datetime.now().strftime("%H:%M %d/%m/%y")
+            
+            # Mensagem de texto simples (sem mídia)
+            if media_type is None:
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": to_number,
+                    "type": "text",
+                    "text": {
+                        "body": message
+                    }
+                }
+                
+                # Registra na conversa
+                self.conversations[to_number]["messages"].append({
+                    "type": "text",
+                    "content": message,
+                    "from": sender,
+                    "timestamp": timestamp
+                })
+            else:
+                # Lida com envio de mídia
+                if media_path.startswith(('http://', 'https://')):
+                    # URL externa
+                    media_payload = {
+                        "link": media_path
+                    }
+                    if media_type != "audio" and message:
+                        media_payload["caption"] = message
+                else:
+                    # Arquivo local ou no Cloud Storage
+                    print(f"DEBUG: Enviando mídia do tipo {media_type}: {media_path}")
+                    
+                    # Upload de mídia com tratamento de erro
+                    try:
+                        # INÍCIO DOS LOGS DE ÁUDIO
+                        if media_type == "audio":
+                            print(f"DEBUG ÁUDIO: Iniciando processamento de mensagem de áudio")
+                            print(f"DEBUG ÁUDIO: Caminho do arquivo: {media_path}")
+                            print(f"DEBUG ÁUDIO: MIME type sendo usado: {mime_type or 'Não especificado (será detectado)'}")
+                        # FIM DOS LOGS DE ÁUDIO
+                        
+                        if media_type == "audio":
+                            mime_type = "audio/ogg"
+                            print("FORÇANDO ÁUDIO COMO audio/ogg")
+                        else:
+                            mime_type = None
+                        media_id = self.media_handler.upload_media(media_path, self.WHATSAPP_TOKEN, mime_type)
+
+                        # MAIS LOGS DE ÁUDIO
+                        if media_type == "audio":
+                            print(f"DEBUG ÁUDIO: Resultado do upload: media_id={media_id}")
+                            if not media_id:
+                                print(f"DEBUG ÁUDIO: FALHA no upload do áudio - verifique logs anteriores")
+                            else:
+                                print(f"DEBUG ÁUDIO: Upload do áudio bem-sucedido, continuando com envio")
+
+                        if not media_id:
+                            print(f"Falha ao obter ID de mídia para {media_path}")
+                            return False
+
+                        media_payload = {
+                            "id": media_id
+                        }
+                        # Adiciona legenda apenas para mídias que não são áudio
+                        if media_type != "audio" and message:
+                            media_payload["caption"] = message
+                            
+                        print(f"DEBUG: Media ID obtido: {media_id}")
+                    except Exception as e:
+                        print(f"Erro no upload de mídia: {str(e)}")
+                        return False
+
+                # Payload final para envio de mídia
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": to_number,
+                    "type": media_type,
+                    media_type: media_payload
+                }
+                
+                # Registra na conversa
+                self.conversations[to_number]["messages"].append({
+                    "type": media_type,
+                    "content": message,
+                    "media_url": media_path,
+                    "from": sender,
+                    "timestamp": timestamp
+                })
+
+            print(f"Enviando payload: {payload}")  # Debug para ver o payload enviado
+            response = requests.post(url, json=payload, headers=headers)
+            print(f"RESPOSTA DETALHADA DA API: Status={response.status_code}, Corpo={response.text}")
+
+            # Verifica a resposta
+            if response.status_code == 200:
+                print(f"Mensagem enviada com sucesso para {to_number}")
+                self.save_conversation(to_number)
+                return True
+            else:
+                print(f"Falha ao enviar mensagem para {to_number}: {response.text}")
+                return False
+        except Exception as e:
+            print(f"Erro ao enviar mensagem: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
+# FIM DO ARQUIVO: WhatsApp_Manager.py 
+
+// INÍCIO DO ARQUIVO: static\conversation.js (3/4) 
+/**
+ * Módulo para gerenciamento de conversas
+ * Funções para carregar, enviar mensagens e gerenciar o estado das conversas
+ */
+
+// Extende o objeto App com as funções de conversas
+(function(App) {
+    
+    // Função para determinar se uma URL é do GCS (NOVO)
+    App.isGcsUrl = function(url) {
+        return url && (
+            url.includes('storage.googleapis.com') || 
+            url.includes('storage.cloud.google.com')
+        );
+    };
+    
+    // Função para obter a URL completa (local ou GCS) (MODIFICADA)
+    App.getMediaUrl = function(mediaPath) {
+        // Verificar se o caminho é nulo ou vazio
+        if (!mediaPath) {
+            console.log("Aviso: Caminho de mídia nulo ou vazio");
+            return ''; // Retorna uma string vazia para evitar erros
+        }
+        
+        // Se já for uma URL completa do GCS, usa ela diretamente
+        if (App.isGcsUrl(mediaPath)) {
+            return mediaPath;
+        }
+        
+        // Se for um caminho relativo
+        if (typeof mediaPath === 'string') {
+            // Verifica se começa com /media/ e remove se necessário
+            if (mediaPath.startsWith('/media/')) {
+                mediaPath = mediaPath.substring(7);
+            }
+            
+            // Tenta localizar no GCS primeiro
+            const bucketName = 'aerial-acre-455118-a9-media';
+            return `https://storage.googleapis.com/${bucketName}/${mediaPath}`;
+        }
+        
+        // Fallback para o caminho local
+        return `/media/${mediaPath}`;
+    };
+    
+    // Carrega uma conversa específica
+    App.loadConversation = function(phone) {
+        console.log("Carregando conversa:", phone);
+        fetch('/conversation/' + phone)
+            .then(response => response.json())
+            .then(data => {
+                console.log("Conversa carregada:", data);
+                
+                // Atualiza a interface com os dados da conversa
+                document.getElementById('current-contact-name').textContent = data.name || "Cliente";
+                
+                // Atualiza o avatar do contato
+                const contactAvatar = document.getElementById('current-contact-avatar');
+                if (data.profile_pic) {
+                    contactAvatar.innerHTML = `<img src="${data.profile_pic}" alt="${data.name || 'Cliente'}">`;
+                } else {
+                    const initial = ((data.name || 'Cliente')[0] || '?').toUpperCase();
+                    contactAvatar.innerHTML = `<div class="avatar-placeholder">${initial}</div>`;
+                }
+                
+                // Limpa a área de mensagens
+                const messageArea = document.getElementById('message-area');
+                messageArea.innerHTML = '';
+                
+                // Se não tiver mensagens, mostra um estado vazio
+                if (!data.messages || data.messages.length === 0) {
+                    messageArea.innerHTML = '<div class="empty-state">Nenhuma mensagem encontrada</div>';
+                    
+                    // Limpa também a área de IA
+                    document.getElementById('ai-message-area').innerHTML = 
+                        '<div class="empty-state">Nenhuma interação com a IA ainda</div>';
+                    return;
+                }
+                
+                // Renderiza as mensagens
+                data.messages.forEach(msg => {
+                    const messageElement = document.createElement('div');
+                    messageElement.className = `message ${msg.from}`;
+                    
+                    // Conteúdo da mensagem
+                    let content = '';
+                    if (msg.type === 'text' || !msg.type) {
+                        content = `<div class="message-text">${msg.content}</div>`;
+                    } else if (msg.type === 'image') {
+                        // MODIFICADO: Usa a função getMediaUrl para obter a URL correta
+                        const mediaUrl = App.getMediaUrl(msg.media_url);
+                        content = `
+                            <div class="message-media">
+                                <img src="${mediaUrl}" alt="Imagem" onclick="App.zoomImage('${mediaUrl}')">
+                            </div>
+                            ${msg.content ? `<div class="message-caption">${msg.content}</div>` : ''}
+                        `;
+                    } else if (msg.type === 'audio') {
+                        // MODIFICADO: Usa a função getMediaUrl para obter a URL correta
+                        const mediaUrl = App.getMediaUrl(msg.media_url);
+                        content = `
+                            <div class="message-media">
+                                <audio controls src="${mediaUrl}"></audio>
+                            </div>
+                            ${msg.content ? `<div class="message-caption">${msg.content}</div>` : ''}
+                        `;
+                    } else if (msg.type === 'video') {
+                        // MODIFICADO: Usa a função getMediaUrl para obter a URL correta
+                        const mediaUrl = App.getMediaUrl(msg.media_url);
+                        content = `
+                            <div class="message-media">
+                                <video controls src="${mediaUrl}"></video>
+                            </div>
+                            ${msg.content ? `<div class="message-caption">${msg.content}</div>` : ''}
+                        `;
+                    } else if (msg.type === 'document') {
+                        // MODIFICADO: Usa a função getMediaUrl para obter a URL correta
+                        const mediaUrl = App.getMediaUrl(msg.media_url);
+                        const fileName = msg.media_url.split('/').pop();
+                        content = `
+                            <div class="message-document">
+                                <a href="${mediaUrl}" class="document-link" target="_blank">
+                                    <i class="fas fa-file"></i> ${fileName}
+                                </a>
+                            </div>
+                            ${msg.content ? `<div class="message-caption">${msg.content}</div>` : ''}
+                        `;
+                    } else if (msg.type === 'location') {
+                        content = `
+                            <div class="message-location">
+                                <img src="https://maps.googleapis.com/maps/api/staticmap?center=${msg.latitude},${msg.longitude}&zoom=13&size=300x150&markers=color:red%7C${msg.latitude},${msg.longitude}" 
+                                  alt="Localização" onclick="App.openLocation(${msg.latitude}, ${msg.longitude})">
+                                <div class="location-caption">
+                                    <i class="fas fa-map-marker-alt"></i> Localização
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Adiciona opções de mensagem (três pontos)
+                    messageElement.innerHTML = `
+                        <div class="message-options">
+                            <button class="options-btn" onclick="App.showMessageOptions(event, '${msg.id || ''}')">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                        </div>
+                        ${content}
+                        <div class="message-time">${msg.timestamp || ''}</div>
+                    `;
+                    
+                    messageArea.appendChild(messageElement);
+                });
+                
+                // Rola para a última mensagem
+                messageArea.scrollTop = messageArea.scrollHeight;
+                
+                // Exibe apenas as mensagens da IA na coluna da direita
+                const aiMessageArea = document.getElementById('ai-message-area');
+                aiMessageArea.innerHTML = '';
+                
+                // Filtra apenas mensagens do cliente e da IA (qwen/deepseek)
+                const aiInteractions = data.messages.filter(msg => 
+                    msg.from === 'cliente' || msg.from === 'qwen' || msg.from === 'deepseek'
+                );
+                
+                if (!aiInteractions || aiInteractions.length === 0) {
+                    aiMessageArea.innerHTML = '<div class="empty-state">Nenhuma interação com a IA ainda</div>';
+                } else {
+                    aiInteractions.forEach(msg => {
+                        const messageElement = document.createElement('div');
+                        messageElement.className = `message ${msg.from}`;
+                        
+                        // Conteúdo da mensagem (simplificado para a visão da IA)
+                        let content = '';
+                        if (msg.type === 'text' || !msg.type) {
+                            content = `<div class="message-text">${msg.content}</div>`;
+                        } else {
+                            content = `<div class="message-text">[${msg.type.toUpperCase()}] ${msg.content || ''}</div>`;
+                        }
+                        
+                        messageElement.innerHTML = `
+                            ${content}
+                            <div class="message-time">${msg.timestamp || ''}</div>
+                        `;
+                        
+                        aiMessageArea.appendChild(messageElement);
+                    });
+                    
+                    // Rola para a última mensagem
+                    aiMessageArea.scrollTop = aiMessageArea.scrollHeight;
+                }
+                
+                // Atualiza o estado da aplicação
+                App.currentPhone = phone;
+                App.currentConversation = data;
+                
+                // Atualiza o botão de modo
+                const modeButton = document.getElementById('toggle-mode-btn');
+                modeButton.style.display = 'inline-block';
+                modeButton.className = data.mode === 'human' ? 'human-mode' : 'auto-mode';
+                modeButton.innerHTML = data.mode === 'human' ? 
+                    '<i class="fas fa-user"></i> Modo Humano' : 
+                    '<i class="fas fa-robot"></i> Modo Automático';
+                
+                // Marca a conversa ativa na lista
+                document.querySelectorAll('.conversation-item').forEach(item => {
+                    item.classList.remove('active');
+                    if (item.getAttribute('data-phone') === phone) {
+                        item.classList.add('active');
+                    }
+                });
+            })
+            .catch(error => {
+                console.error("Erro ao carregar conversa:", error);
+                alert("Erro ao carregar conversa: " + error.message);
+            });
+    };
+    
+    // Envia uma mensagem para um contato
+    App.sendMessage = function() {
+        // Bloqueia múltiplos envios
+        if (this.isSubmitting) return;
+        this.isSubmitting = true;
+    
+        if (!App.currentPhone) {
+            alert("Selecione uma conversa primeiro!");
+            this.isSubmitting = false;
+            return;
+        }
+        
+        const messageInput = document.getElementById('message-input');
+        const message = messageInput.value.trim();
+        
+        if (!message && !App.mediaInfo) {
+            alert("Digite uma mensagem ou selecione uma mídia!");
+            this.isSubmitting = false;
+            return;
+        }
+        
+        const data = {
+            to_number: App.currentPhone,
+            message: message
+        };
+        
+        if (App.mediaInfo) {
+            data.media_path = App.mediaInfo.path;
+            data.media_type = App.mediaInfo.type;
+        }
+        
+        const sendButton = document.getElementById('send-button');
+        sendButton.disabled = true;
+        
+        fetch('/send_message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Erro ao enviar mensagem");
+            }
+            return response.json();
+        })
+        .then(result => {
+            messageInput.value = '';
+            App.mediaInfo = null;
+            
+            // Remove a flag de submissão
+            this.isSubmitting = false;
+            
+            // Recarrega a conversa
+            App.loadConversation(App.currentPhone);
+        })
+        .catch(error => {
+            console.error("Erro:", error);
+            alert("Não foi possível enviar a mensagem");
+            
+            // Remove a flag de submissão em caso de erro
+            this.isSubmitting = false;
+        })
+        .finally(() => {
+            sendButton.disabled = false;
+        });
+    };
+    
+    App.toggleMode = function() {
+        if (!App.currentPhone) {
+            alert("Selecione uma conversa primeiro!");
+            return;
+        }
+        
+        // Desabilita o botão durante a operação
+        const toggleButton = document.getElementById('toggle-mode-btn');
+        toggleButton.disabled = true;
+        
+        fetch(`/toggle_mode/${App.currentPhone}`, {
+            method: 'POST'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Erro ao alterar modo: " + response.statusText);
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.status === 'success') {
+                // Atualiza a interface com o novo modo
+                const newMode = result.mode;
+                toggleButton.className = newMode === 'human' ? 'human-mode' : 'auto-mode';
+                toggleButton.innerHTML = newMode === 'human' ? 
+                    '<i class="fas fa-user"></i> Modo Humano' : 
+                    '<i class="fas fa-robot"></i> Modo Automático';
+                    
+                // Atualiza o ícone na lista de conversas
+                const convoItem = document.querySelector(`.conversation-item[data-phone="${App.currentPhone}"] .mode-toggle`);
+                if (convoItem) {
+                    convoItem.className = `mode-toggle ${newMode === 'human' ? 'human-mode' : 'auto-mode'}`;
+                    convoItem.innerHTML = `<i class="fas ${newMode === 'human' ? 'fa-user' : 'fa-robot'}"></i>`;
+                }
+                
+                // Atualiza o estado da conversa
+                if (App.currentConversation) {
+                    App.currentConversation.mode = newMode;
+                }
+            } else {
+                alert("Erro ao alterar modo: " + (result.message || "Erro desconhecido"));
+            }
+        })
+        .catch(error => {
+            console.error("Erro ao alterar modo:", error);
+            alert("Erro ao alterar modo: " + error.message);
+        })
+        .finally(() => {
+            toggleButton.disabled = false;
+        });
+    };
+    
+    // Envia uma localização para um contato
+    App.sendLocation = function(lat, lng) {
+        if (!App.currentPhone) return;
+        
+        // Desabilita o botão durante o envio
+        const sendButton = document.getElementById('send-button');
+        sendButton.disabled = true;
+        
+        // Adiciona mensagem temporária na interface para feedback imediato
+        const messageArea = document.getElementById('message-area');
+        const tempMsg = document.createElement('div');
+        tempMsg.className = 'message vendedor temp-message';
+        tempMsg.innerHTML = `
+            <div class="message-location">
+                <img src="https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=13&size=300x150&markers=color:red%7C${lat},${lng}" 
+                    alt="Localização" onclick="App.openLocation(${lat}, ${lng})">
+                <div class="location-caption">
+                    <i class="fas fa-map-marker-alt"></i> Localização Compartilhada
+                </div>
+            </div>
+            <div class="message-time">Enviando...</div>
+        `;
+        messageArea.appendChild(tempMsg);
+        messageArea.scrollTop = messageArea.scrollHeight;
+        
+        // Envia a requisição para o backend
+        fetch('/send_location', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                to_number: App.currentPhone,
+                latitude: lat,
+                longitude: lng
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Erro ao enviar localização: " + response.statusText);
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.status === 'success') {
+                // Remove a mensagem temporária e recarrega a conversa
+                tempMsg.remove();
+                setTimeout(() => {
+                    App.loadConversation(App.currentPhone);
+                }, 500);
+            } else {
+                // Mostra erro e remove a mensagem temporária
+                tempMsg.remove();
+                alert("Erro ao enviar localização: " + (result.message || "Erro desconhecido"));
+            }
+        })
+        .catch(error => {
+            // Mostra erro e remove a mensagem temporária
+            tempMsg.remove();
+            console.error("Erro ao enviar localização:", error);
+            alert("Erro ao enviar localização: " + error.message);
+        })
+        .finally(() => {
+            sendButton.disabled = false;
+            // Limpa a localização armazenada
+            App.currentLocation = null;
+        });
+    };
+    
+    // Abre uma localização no Google Maps
+    App.openLocation = function(lat, lng) {
+        // Abre a localização no Google Maps em uma nova aba
+        window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+    };
+    
+    // Exibe detalhes do perfil
+    App.showProfileDetails = function() {
+        if (!App.currentPhone || !App.currentConversation) return;
+        
+        const profile = App.currentConversation;
+        const profilePic = profile.profile_pic || '';
+        const name = profile.name || 'Cliente';
+        const about = profile.about || 'Disponível'; // Campo a ser adicionado no backend
+        
+        // Cria um modal de perfil
+        const modal = document.createElement('div');
+        modal.className = 'modal profile-modal';
+        modal.style.display = 'block';
+        
+        modal.innerHTML = `
+            <div class="modal-content profile-content">
+                <span class="close" onclick="App.closeModal()">&times;</span>
+                <div class="profile-header">
+                    <div class="profile-image">
+                        ${profilePic ? 
+                        `<img src="${profilePic}" alt="${name}" onclick="App.zoomImage('${profilePic}')">` : 
+                        `<div class="avatar-placeholder large">${name[0].toUpperCase()}</div>`}
+                    </div>
+                    <h2>${name}</h2>
+                    <p class="profile-about">${about}</p>
+                </div>
+                <div class="profile-info">
+                    <div class="info-item">
+                        <i class="fas fa-phone"></i>
+                        <span>${App.currentPhone}</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-bell"></i>
+                        <span>Notificações: Ativadas</span>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="notification-toggle" checked>
+                            <label for="notification-toggle"></label>
+                        </div>
+                    </div>
+                    <div class="danger-zone">
+                        <button class="danger-btn" onclick="App.confirmDeleteConversation('${App.currentPhone}'); App.closeModal();">
+                            <i class="fas fa-trash"></i> Apagar Conversa
+                        </button>
+                        <button class="block-btn" onclick="alert('Funcionalidade de bloqueio será implementada em breve!')">
+                            <i class="fas fa-ban"></i> Bloquear Contato
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Fecha o modal se clicar fora do conteúdo
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                App.closeModal();
+            }
+        });
+    };
+
+    // Exibe uma imagem em tamanho maior
+    App.zoomImage = function(imageUrl) {
+        // MODIFICADO: Usa a função getMediaUrl para garantir URL correta
+        imageUrl = App.getMediaUrl(imageUrl);
+        
+        // Cria um modal para mostrar a imagem ampliada
+        const modal = document.createElement('div');
+        modal.className = 'modal zoom-modal';
+        modal.innerHTML = `
+            <div class="modal-content image-zoom">
+                <span class="close" onclick="App.closeModal()">&times;</span>
+                <img src="${imageUrl}" alt="Imagem ampliada">
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        modal.style.display = 'block';
+        
+        // Fecha o modal ao clicar fora da imagem
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                App.closeModal();
+            }
+        });
+    };
+    
+    // Funções para gerenciar opções de mensagens
+    App.showMessageOptions = function(event, messageId) {
+        event.stopPropagation();
+        
+        // Remove qualquer menu de opções existente
+        const existingMenu = document.getElementById('message-options-menu');
+        if (existingMenu) existingMenu.remove();
+        
+        // Cria o menu de opções
+        const optionsMenu = document.createElement('div');
+        optionsMenu.id = 'message-options-menu';
+        optionsMenu.className = 'options-menu';
+        optionsMenu.innerHTML = `
+            <div class="option" onclick="App.replyToMessage('${messageId}')">
+                <i class="fas fa-reply"></i> Responder
+            </div>
+            <div class="option" onclick="App.forwardMessage('${messageId}')">
+                <i class="fas fa-share"></i> Encaminhar
+            </div>
+            <div class="option" onclick="App.copyMessageText('${messageId}')">
+                <i class="fas fa-copy"></i> Copiar
+            </div>
+            <div class="option delete" onclick="App.deleteMessage('${messageId}')">
+                <i class="fas fa-trash"></i> Apagar
+            </div>
+        `;
+        
+        // Posiciona o menu próximo ao botão de opções
+        const button = event.currentTarget;
+        const rect = button.getBoundingClientRect();
+        
+        optionsMenu.style.top = `${rect.bottom + window.scrollY}px`;
+        optionsMenu.style.left = `${rect.left + window.scrollX - 120}px`;
+        
+        document.body.appendChild(optionsMenu);
+        
+        // Fecha o menu se clicar fora dele
+        document.addEventListener('click', function closeMenu(e) {
+            if (!optionsMenu.contains(e.target) && e.target !== button) {
+                optionsMenu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        });
+    };
+    
+    App.replyToMessage = function(messageId) {
+        // Implementação futura para responder a mensagens específicas
+        alert("Função de responder será implementada em breve!");
+        document.getElementById('message-options-menu')?.remove();
+    };
+    
+    App.forwardMessage = function(messageId) {
+        // Implementação futura para encaminhar mensagens
+        alert("Função de encaminhar será implementada em breve!");
+        document.getElementById('message-options-menu')?.remove();
+    };
+    
+    App.copyMessageText = function(messageId) {
+        // Copia o texto da mensagem para a área de transferência
+        const message = document.querySelector(`.message`);
+        const textElement = message?.querySelector('.message-text');
+        
+        if (textElement) {
+            const text = textElement.textContent;
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    // Feedback visual
+                    const notification = document.createElement('div');
+                    notification.className = 'notification';
+                    notification.innerHTML = '<i class="fas fa-check-circle"></i> Texto copiado!';
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => {
+                        notification.classList.add('fade-out');
+                        setTimeout(() => notification.remove(), 500);
+                    }, 1500);
+                })
+                .catch(err => {
+                    console.error('Erro ao copiar texto: ', err);
+                    alert('Não foi possível copiar o texto: ' + err);
+                });
+        }
+        
+        document.getElementById('message-options-menu')?.remove();
+    };
+    
+    App.deleteMessage = function(messageId) {
+        if (confirm("Tem certeza que deseja apagar esta mensagem?")) {
+            // Implementação temporária - remove visualmente o elemento até que o backend seja implementado
+            const message = document.querySelector(`.message`);
+            if (message) {
+                message.classList.add('deleted');
+                setTimeout(() => {
+                    message.innerHTML = '<div class="deleted-message"><i class="fas fa-ban"></i> Mensagem apagada</div>';
+                }, 300);
+            }
+            
+            // Implementação futura para deletar do backend
+            // fetch(`/delete_message/${messageId}`, {
+            //     method: 'POST'
+            // }).then(/* ... */);
+        }
+        
+        document.getElementById('message-options-menu')?.remove();
+    };
+    // Adicione esta função ao conversation.js no objeto App
+
+    App.debugMediaSend = function() {
+        if (!App.currentPhone || !App.mediaInfo) {
+            console.error("Não há conversa ativa ou mídia selecionada");
+            return;
+        }
+        
+        console.log("Enviando requisição de diagnóstico para o servidor");
+        console.log("Mídia:", App.mediaInfo);
+        
+        fetch('/debug_media_send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                to_number: App.currentPhone,
+                message: "Teste de diagnóstico",
+                media_path: App.mediaInfo.path,
+                media_type: App.mediaInfo.type
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            console.log("Resposta do diagnóstico:", result);
+            alert("Resultado do diagnóstico: " + (result.status === "success" ? "Sucesso!" : "Falha") + 
+                "\nDetalhes: " + result.message);
+        })
+        .catch(error => {
+            console.error("Erro no diagnóstico:", error);
+            alert("Erro no diagnóstico: " + error.message);
+        });
+    };
+
+    // Para chamar a função no console do navegador depois de selecionar uma mídia:
+    // App.debugMediaSend();    
+})(window.App || (window.App = {}));
+// FIM DO ARQUIVO: static\conversation.js 
+
+// INÍCIO DO ARQUIVO: static\media.js (4/4) 
+/**
+ * Módulo de gerenciamento de mídia com gravação de áudio - Adaptado para Google Cloud Storage
+ */
+(function(App) {
+    console.log("Media.js: Inicializando módulo de mídia");
+
+    // Variáveis para controle de gravação de áudio
+    App.audioRecorder = null;
+    App.audioChunks = [];
+    App.isRecording = false;
+    App.recordingTimer = null;
+    App.recordingDuration = 0;
+    App.recordingStream = null;
+
+    // Função de abertura do modal de áudio
+    App.openMediaUpload = function(type) {
+        console.log("openMediaUpload chamado com tipo:", type);
+
+        // Se for áudio, abre o modal de gravação
+        if (type === 'audio') {
+            console.log("Abrindo modal de gravação de áudio");
+            App.openAudioRecorder();
+            return;
+        }
+        
+        // Resto do código original para outros tipos de mídia
+        App.mediaType = type;
+        
+        const typeNames = {
+            'image': 'Imagem',
+            'audio': 'Áudio',
+            'video': 'Vídeo',
+            'document': 'Documento'
+        };
+        document.getElementById('upload-title').textContent = `Enviar ${typeNames[type] || 'Mídia'}`;
+        
+        const fileInput = document.getElementById('media-file');
+        switch (type) {
+            case 'image':
+                fileInput.accept = 'image/*';
+                break;
+            case 'audio':
+                fileInput.accept = 'audio/*';
+                break;
+            case 'video':
+                fileInput.accept = 'video/*';
+                break;
+            case 'document':
+                fileInput.accept = '.pdf,.doc,.docx,.xls,.xlsx,.txt';
+                break;
+        }
+        
+        fileInput.value = '';
+        document.getElementById('media-caption').value = '';
+        
+        document.getElementById('media-upload-modal').style.display = 'block';
+    };
+
+    // Upload de mídia - Adaptado para Google Cloud Storage
+    App.uploadMedia = function() {
+        console.log("Iniciando upload de mídia");
+        
+        if (!App.currentPhone) {
+            alert("Selecione uma conversa primeiro!");
+            App.closeModal();
+            return;
+        }
+        
+        const fileInput = document.getElementById('media-file');
+        const caption = document.getElementById('media-caption').value.trim();
+        
+        if (!fileInput.files || !fileInput.files[0]) {
+            alert("Selecione um arquivo!");
+            return;
+        }
+        
+        // Bloquear o botão durante o upload
+        const uploadBtn = document.getElementById('upload-media-btn');
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = 'Enviando...';
+        
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        
+        fetch('/upload_media', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            console.log("Resposta do upload:", response);
+            if (!response.ok) {
+                throw new Error("Erro ao fazer upload: " + response.statusText);
+            }
+            return response.json();
+        })
+        .then(result => {
+            console.log("Resultado do upload:", result);
+            
+            if (result.status === 'success') {
+                // Fecha o modal primeiro
+                App.closeModal();
+                
+                // Armazena informações da mídia para envio
+                // Nenhuma modificação necessária aqui, o backend já retorna o caminho correto
+                App.mediaInfo = {
+                    path: result.media_path,
+                    type: result.media_type
+                };
+                
+                // Define a legenda no campo de mensagem se houver
+                if (caption) {
+                    document.getElementById('message-input').value = caption;
+                }
+                
+                // Envia a mensagem
+                App.sendMessage();
+            } else {
+                alert("Erro ao fazer upload: " + (result.message || "Erro desconhecido"));
+            }
+        })
+        .catch(error => {
+            console.error("Erro ao fazer upload:", error);
+            alert("Erro ao fazer upload: " + error.message);
+        })
+        .finally(() => {
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'Enviar';
+        });
+    };
+
+    // Função simplificada para abrir modal de gravação de áudio
+    App.openAudioRecorder = function() {
+        console.log("Método openAudioRecorder chamado");
+
+        // Verifica se o modal de gravação já existe
+        let audioRecorderModal = document.getElementById('audio-recorder-modal');
+        
+        // Se não existir, cria o modal simplificado
+        if (!audioRecorderModal) {
+            console.log("Criando novo modal de gravação de áudio");
+            audioRecorderModal = document.createElement('div');
+            audioRecorderModal.id = 'audio-recorder-modal';
+            audioRecorderModal.className = 'modal';
+            audioRecorderModal.innerHTML = `
+                <div class="modal-content audio-recorder">
+                    <span class="close" onclick="App.closeAudioRecorder()">&times;</span>
+                    <h3>Gravar Mensagem de Voz</h3>
+                    
+                    <div class="recording-timer" id="recording-timer">00:00</div>
+                    
+                    <div class="audio-controls">
+                        <button id="start-recording-btn" class="recording-btn" onclick="App.startRecording()">
+                            <i class="fas fa-microphone"></i> Iniciar Gravação
+                        </button>
+                        <button id="stop-recording-btn" class="recording-btn" style="display: none;" onclick="App.stopRecording()">
+                            <i class="fas fa-stop"></i> Parar Gravação
+                        </button>
+                        <button id="cancel-recording-btn" class="cancel-btn" onclick="App.cancelRecording()">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                    </div>
+                    
+                    <div id="audio-preview" class="audio-preview" style="display: none;">
+                        <audio id="recorded-audio" controls></audio>
+                        <div class="preview-controls">
+                            <button onclick="App.redoRecording()">
+                                <i class="fas fa-redo"></i> Regravar
+                            </button>
+                            <button onclick="App.sendRecordedAudio()">
+                                <i class="fas fa-paper-plane"></i> Enviar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Adiciona o modal ao documento
+            document.body.appendChild(audioRecorderModal);
+        }
+        
+        // Limpa estados anteriores
+        App.audioChunks = [];
+        App.isRecording = false;
+        App.recordingDuration = 0;
+        document.getElementById('recording-timer').textContent = '00:00';
+        
+        // Esconde o preview se estava visível
+        const audioPreview = document.getElementById('audio-preview');
+        if (audioPreview) {
+            audioPreview.style.display = 'none';
+        }
+        
+        // Exibe o modal
+        console.log("Exibindo modal de gravação de áudio");
+        audioRecorderModal.style.display = 'block';
+    };
+
+    // Inicia a gravação de áudio
+    // Substitua a função startRecording no arquivo media.js
+
+// Substitua a função startRecording no arquivo media.js
+
+App.startRecording = function() {
+    console.log("Iniciando gravação de áudio");
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('Navegador não suporta gravação de áudio');
+        alert('Seu navegador não suporta gravação de áudio.');
+        return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function(stream) {
+            console.log("Permissão de microfone obtida");
+            // Armazena o stream para fechar depois
+            App.recordingStream = stream;
+            
+            // MODIFICAÇÃO: Configura o gravador com formato OGG forçado
+            const options = {
+                mimeType: 'audio/ogg; codecs=opus',
+                audioBitsPerSecond: 16000
+            };
+            
+            // Tenta criar com as opções, mas faz fallback se necessário
+            try {
+                App.audioRecorder = new MediaRecorder(stream, options);
+                console.log("Usando formato OGG para gravação");
+            } catch (e) {
+                console.log("Formato OGG não suportado, tentando alternativas", e);
+                // Tenta webm como alternativa
+                try {
+                    App.audioRecorder = new MediaRecorder(stream, { 
+                        mimeType: 'audio/webm;codecs=opus',
+                        audioBitsPerSecond: 16000 
+                    });
+                    console.log("Usando formato WebM para gravação");
+                } catch (e2) {
+                    // Última opção: deixe o navegador escolher o formato
+                    App.audioRecorder = new MediaRecorder(stream);
+                    console.log("Usando formato padrão do navegador para gravação");
+                }
+            }
+            
+            App.audioChunks = [];
+            
+            // Evento de dados disponíveis
+            App.audioRecorder.ondataavailable = function(e) {
+                if (e.data.size > 0) {
+                    App.audioChunks.push(e.data);
+                }
+            };
+            
+            // Evento de finalização
+            App.audioRecorder.onstop = function() {
+                console.log("Gravação finalizada");
+                const audioBlob = new Blob(App.audioChunks, { type: App.audioRecorder.mimeType });
+                console.log("Áudio gravado em formato:", App.audioRecorder.mimeType);
+                const audioUrl = URL.createObjectURL(audioBlob);
+                
+                const audioPreview = document.getElementById('audio-preview');
+                const recordedAudio = document.getElementById('recorded-audio');
+                
+                if (audioPreview && recordedAudio) {
+                    recordedAudio.src = audioUrl;
+                    audioPreview.style.display = 'block';
+                }
+                
+                App.recordedAudioBlob = audioBlob;
+                App.stopAudioStream();
+            };
+            
+            // Inicia a gravação
+            App.audioRecorder.start();
+            App.isRecording = true;
+            
+            // Atualiza a interface
+            const startBtn = document.getElementById('start-recording-btn');
+            const stopBtn = document.getElementById('stop-recording-btn');
+            
+            if (startBtn) startBtn.style.display = 'none';
+            if (stopBtn) stopBtn.style.display = 'inline-block';
+            
+            // Inicia o timer
+            App.recordingDuration = 0;
+            App.recordingTimer = setInterval(function() {
+                App.recordingDuration++;
+                const minutes = Math.floor(App.recordingDuration / 60);
+                const seconds = App.recordingDuration % 60;
+                document.getElementById('recording-timer').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        })
+        .catch(function(err) {
+            console.error('Erro ao iniciar gravação:', err);
+            alert('Não foi possível iniciar a gravação. Erro: ' + err.message);
+        });
+}
+
+    // Para a gravação de áudio
+    App.stopRecording = function() {
+        console.log("Parando gravação de áudio");
+        if (App.audioRecorder && App.isRecording) {
+            App.audioRecorder.stop();
+            App.isRecording = false;
+            
+            // Para o timer
+            clearInterval(App.recordingTimer);
+        }
+    };
+
+    // Cancela a gravação
+    App.cancelRecording = function() {
+        console.log("Cancelando gravação de áudio");
+        if (App.isRecording) {
+            App.audioRecorder.stop();
+            App.isRecording = false;
+            
+            // Para o timer
+            clearInterval(App.recordingTimer);
+        }
+        
+        // Interrompe o stream
+        App.stopAudioStream();
+        
+        // Fecha o modal
+        App.closeAudioRecorder();
+    };
+
+    // Fecha o modal de gravação de áudio
+    App.closeAudioRecorder = function() {
+        console.log("Fechando modal de gravação de áudio");
+        // Interrompe a gravação se estiver em andamento
+        if (App.isRecording) {
+            App.cancelRecording();
+        }
+        
+        // Fecha o modal
+        const modal = document.getElementById('audio-recorder-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    };
+
+    // Reinicia a gravação
+    App.redoRecording = function() {
+        console.log("Refazendo gravação");
+        // Esconde o preview
+        const audioPreview = document.getElementById('audio-preview');
+        if (audioPreview) {
+            audioPreview.style.display = 'none';
+        }
+        
+        // Reseta o timer
+        App.recordingDuration = 0;
+        document.getElementById('recording-timer').textContent = '00:00';
+        
+        // Exibe o botão de iniciar
+        const startBtn = document.getElementById('start-recording-btn');
+        const stopBtn = document.getElementById('stop-recording-btn');
+        
+        if (startBtn) startBtn.style.display = 'inline-block';
+        if (stopBtn) stopBtn.style.display = 'none';
+    };
+
+    // Interrompe o stream de áudio
+    App.stopAudioStream = function() {
+        console.log("Parando stream de áudio");
+        if (App.recordingStream) {
+            App.recordingStream.getTracks().forEach(track => track.stop());
+            App.recordingStream = null;
+        }
+    };
+
+    // Envia o áudio gravado - Adaptado para Google Cloud Storage
+// Substitua a função sendRecordedAudio no arquivo media.js
+
+ // Substitua a função sendRecordedAudio no arquivo media.js para melhorar o tratamento de erros
+
+    App.sendRecordedAudio = function() {
+        console.log("Enviando áudio gravado");
+        if (!App.recordedAudioBlob) {
+            console.error('Nenhum áudio disponível para envio');
+            alert('Nenhum áudio disponível para envio');
+            return;
+        }
+        
+        if (!App.currentPhone) {
+            console.error('Nenhuma conversa selecionada');
+            alert("Selecione uma conversa primeiro!");
+            App.closeAudioRecorder();
+            return;
+        }
+        
+        // Mostra indicador de carregamento
+        document.getElementById('audio-preview').innerHTML = '<div class="loading">Enviando áudio...</div>';
+        
+        // NOVO: Detecta o formato do áudio
+        const mimeType = App.audioRecorder.mimeType || 'audio/ogg';
+        console.log("Formato do áudio para envio:", mimeType);
+        
+        // Determina a extensão com base no MIME type
+        let extension = 'ogg';
+        if (mimeType.includes('webm')) {
+            extension = 'webm';
+        } else if (mimeType.includes('wav')) {
+            extension = 'wav';
+        }
+        
+        // Cria um FormData para o upload
+        const formData = new FormData();
+        const fileName = `voice_${Date.now()}.${extension}`;
+        formData.append('file', App.recordedAudioBlob, fileName);
+        
+        // Log para depuração
+        console.log(`Enviando áudio como ${fileName}, MIME: ${mimeType}, tamanho: ${App.recordedAudioBlob.size} bytes`);
+
+        // Faz o upload do áudio
+        fetch('/upload_media', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            console.log("Resposta do upload:", response.status, response.statusText);
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error("Erro detalhado:", text);
+                    throw new Error(`Erro ao fazer upload: ${response.status} ${response.statusText} - ${text}`);
+                });
+            }
+            return response.json();
+        })
+        .then(result => {
+            console.log("Resultado do upload:", result);
+            if (result.status === 'success') {
+                console.log(`Áudio enviado com sucesso para GCS: ${result.media_path}`);
+                // Fecha o modal primeiro
+                App.closeAudioRecorder();
+                
+                // Envia a mensagem diretamente ao servidor
+                const messageData = {
+                    to_number: App.currentPhone,
+                    message: "", // Sem legenda para evitar o erro
+                    media_path: result.media_path,
+                    media_type: 'audio'
+                };
+                
+                console.log("Enviando mensagem com áudio:", messageData);
+                
+                return fetch('/send_message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(messageData)
+                });
+            } else {
+                throw new Error("Erro ao fazer upload: " + (result.message || "Erro desconhecido"));
+            }
+        })
+        .then(response => {
+            console.log("Resposta do envio de mensagem:", response.status, response.statusText);
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error("Erro detalhado do envio:", text);
+                    throw new Error(`Erro ao enviar mensagem: ${response.status} ${response.statusText} - ${text}`);
+                });
+            }
+            return response.json();
+        })
+        .then(sendResult => {
+            console.log("Resultado do envio de mensagem:", sendResult);
+            if (sendResult.status === 'success') {
+                // Recarrega a conversa para exibir a nova mensagem
+                setTimeout(() => {
+                    App.loadConversation(App.currentPhone);
+                }, 500);
+            } else {
+                alert("Erro ao enviar áudio: " + (sendResult.message || "Erro desconhecido"));
+            }
+        })
+        .catch(error => {
+            console.error("Erro completo:", error);
+            alert("Erro ao enviar áudio: " + error.message);
+            App.closeAudioRecorder();
+        });
+    }
+})(window.App || (window.App = {}));
+// FIM DO ARQUIVO: static\media.js 
+
+# FIM DO BACKUP - 2025-03-31 09:59:43

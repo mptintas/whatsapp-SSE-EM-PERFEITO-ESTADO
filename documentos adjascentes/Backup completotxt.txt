@@ -1,0 +1,485 @@
+main.py
+
+# main.py
+
+from WhatsAppManager import WhatsAppManager
+from WebhookServer import WebhookServer
+import threading
+import flask
+
+if __name__ == "__main__":
+    # Inicializa o gerenciador do WhatsApp
+    whatsapp_manager = WhatsAppManager()
+
+
+
+    # Inicializa o servidor webhook em uma thread separada
+    webhook_server = WebhookServer(whatsapp_manager)
+    webhook_thread = threading.Thread(target=webhook_server.run)
+    webhook_thread.daemon = True
+    webhook_thread.start()
+
+
+WhatsAppManager.py
+
+# whatsapp_manager.py
+
+import os
+import json
+import requests
+
+
+class WhatsAppManager:
+    """
+    Classe responsável por gerenciar a comunicação via WhatsApp,
+    armazenamento de mensagens e integração com a IA (Qwen).
+    """
+
+    def __init__(self):
+        """
+        Inicializa a classe com configurações básicas, como tokens,
+        diretórios para salvar mensagens e variáveis de controle.
+        """
+        self.VERIFICATION_TOKEN = "SEU_VERIFICATION_TOKEN"
+        self.WHATSAPP_TOKEN = "SEU_WHATSAPP_TOKEN"
+        self.PHONE_NUMBER_ID = "SEU_PHONE_NUMBER_ID"
+        self.SAVE_FOLDER = "received_messages"
+        self.conversations = {}  # Dicionário para armazenar conversas por número de telefone
+
+        if not os.path.exists(self.SAVE_FOLDER):
+            os.makedirs(self.SAVE_FOLDER)
+
+    def save_received_message(self, data):
+        """
+        Salva a mensagem recebida do WhatsApp em um arquivo JSON.
+        Args:
+            data (dict): Dados da mensagem recebida.
+        """
+        pass
+
+    def handle_incoming_message(self, data):
+        """
+        Processa a mensagem recebida do WhatsApp.
+        Extrai informações relevantes (número, nome, texto) e armazena no histórico.
+        Args:
+            data (dict): Dados da mensagem recebida.
+        """
+        pass
+
+    def send_message_to_whatsapp(self, to_number, message):
+        """
+        Envia uma mensagem para o cliente via API do WhatsApp.
+        Args:
+            to_number (str): Número de telefone do cliente.
+            message (str): Texto da mensagem a ser enviada.
+        Returns:
+            bool: True se a mensagem foi enviada com sucesso, False caso contrário.
+        """
+        pass
+
+    def forward_message_to_qwen(self, message):
+        """
+        Encaminha a mensagem do cliente para a IA (Qwen) e retorna a resposta.
+        Args:
+            message (str): Pergunta ou mensagem do cliente.
+        Returns:
+            str: Resposta gerada pela IA.
+        """
+        pass
+
+    def get_conversation_history(self, phone_number):
+        """
+        Retorna o histórico de conversas de um cliente específico.
+        Args:
+            phone_number (str): Número de telefone do cliente.
+        Returns:
+            list: Lista de mensagens da conversa.
+        """
+        pass
+
+    def assign_conversation_to_seller(self, phone_number, seller_id):
+        """
+        Atribui uma conversa ativa a um vendedor específico.
+        Args:
+            phone_number (str): Número de telefone do cliente.
+            seller_id (str): ID do vendedor que assumirá a conversa.
+        """
+        pass
+
+
+WebhookServer.py
+
+from flask import Flask, request, jsonify
+
+class WebhookServer:
+    """
+    Classe responsável por lidar com requisições do webhook do WhatsApp.
+    Recebe mensagens e encaminha para processamento.
+    """
+
+    def __init__(self, whatsapp_manager):
+        """
+        Inicializa o servidor Flask e conecta-o ao gerenciador do WhatsApp.
+        Args:
+            whatsapp_manager (WhatsAppManager): Instância do gerenciador do WhatsApp.
+        """
+        self.app = Flask(__name__)
+        self.whatsapp_manager = whatsapp_manager
+        self.setup_routes()
+
+    def setup_routes(self):
+        """
+        Define as rotas do servidor Flask para o webhook do WhatsApp.
+        """
+
+        @self.app.route('/webhook', methods=['GET'])
+        def verify_webhook():
+            """
+            Verifica o token do webhook do WhatsApp.
+            """
+            # Extrai os parâmetros da requisição GET
+            mode = request.args.get("hub.mode")
+            token = request.args.get("hub.verify_token")
+            challenge = request.args.get("hub.challenge")
+
+            # Verifica se o token é válido
+            if mode and token == self.whatsapp_manager.VERIFICATION_TOKEN:
+                print("Webhook verificado com sucesso!")
+                return challenge, 200
+            else:
+                print("Token inválido!")
+                return "Token inválido", 403
+
+        @self.app.route('/webhook', methods=['POST'])
+        def webhook():
+            """
+            Recebe mensagens do WhatsApp via webhook e as processa.
+            """
+            try:
+                # Obtém os dados JSON da requisição POST
+                data = request.json
+
+                # Registra os dados recebidos para depuração
+                print(f"Mensagem recebida via webhook: {data}")
+
+                # Encaminha os dados para o WhatsAppManager processar
+                self.whatsapp_manager.handle_incoming_message(data)
+
+                # Retorna uma resposta de sucesso
+                return jsonify({"status": "ok"}), 200
+            except Exception as e:
+                print(f"Erro ao processar mensagem do webhook: {str(e)}")
+                return jsonify({"status": "error", "message": str(e)}), 500
+
+    def run(self, port=5000):
+        """
+        Inicia o servidor Flask para receber requisições do webhook.
+        Args:
+            port (int): Porta onde o servidor será executado.
+        """
+        print(f"Iniciando servidor webhook na porta {port}...")
+        self.app.run(port=port)
+
+
+Index.html
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interface de Atendimento</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Coluna da Esquerda: Lista de Conversas -->
+        <div class="left-column">
+            <!-- Barra de Busca -->
+            <div class="search-bar">
+                <input type="text" placeholder="Buscar conversas...">
+            </div>
+
+            <!-- Lista de Conversas -->
+            <div class="conversation-list">
+                <div class="conversation-item active">
+                    <div class="name">João Silva</div>
+                    <div class="phone">(11) 98765-4321</div>
+                </div>
+                <div class="conversation-item">
+                    <div class="name">Maria Souza</div>
+                    <div class="phone">(21) 99876-5432</div>
+                </div>
+                <div class="conversation-item">
+                    <div class="name">Carlos Pereira</div>
+                    <div class="phone">(31) 98765-1234</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coluna da Direita: Detalhes da Conversa -->
+        <div class="right-column">
+            <!-- Área de Exibição de Mensagens -->
+            <div class="message-area">
+                <div class="message client">
+                    Olá, gostaria de mais informações sobre o produto X.
+                </div>
+                <div class="message seller">
+                    Claro! O produto X é ideal para...
+                </div>
+                <div class="message client">
+                    Qual é o preço?
+                </div>
+            </div>
+
+            <!-- Área de Envio de Mensagem -->
+            <div class="input-area">
+                <textarea placeholder="Digite sua mensagem..."></textarea>
+                <button>Enviar</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+
+
+styles.css
+
+/* Reset básico */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Estilo global */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+    display: flex;
+    height: 100vh;
+}
+
+/* Container principal */
+.container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+/* Coluna da esquerda (Lista de Conversas) */
+.left-column {
+    width: 25%; /* Menor largura */
+    background-color: #ffffff;
+    border-right: 1px solid #e0e0e0;
+    overflow-y: auto; /* Rolagem se necessário */
+    padding: 15px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+}
+
+/* Barra de busca */
+.search-bar input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.search-bar input:focus {
+    border-color: #007bff;
+}
+
+/* Lista de conversas */
+.conversation-list {
+    margin-top: 15px;
+}
+
+.conversation-item {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    margin-bottom: 5px;
+    border-radius: 8px;
+    cursor: pointer;
+    background-color: #fafafa;
+    transition: background-color 0.3s ease;
+}
+
+.conversation-item:hover {
+    background-color: #f0f0f0;
+}
+
+.conversation-item.active {
+    background-color: #e3f2fd; /* Destaca a conversa ativa */
+}
+
+.conversation-item .name {
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+
+.conversation-item .phone {
+    font-size: 12px;
+    color: #666;
+}
+
+/* Coluna da direita (Detalhes da Conversa) */
+.right-column {
+    width: 75%; /* Maior largura */
+    background-color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+}
+
+/* Área de exibição de mensagens */
+.message-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    background-color: #f9f9f9;
+}
+
+/* Mensagens */
+.message {
+    max-width: 70%;
+    padding: 10px 15px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.message.client {
+    background-color: #e3f2fd;
+    align-self: flex-start;
+    border: 1px solid #b3d4fc;
+}
+
+.message.seller {
+    background-color: #ffffff;
+    align-self: flex-end;
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Área de envio de mensagem */
+.input-area {
+    display: flex;
+    gap: 10px;
+}
+
+.input-area textarea {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.input-area textarea:focus {
+    border-color: #007bff;
+}
+
+.input-area button {
+    padding: 12px 20px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+.input-area button:hover {
+    background-color: #0056b3;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+SellerInterface
+
+
+
+
+
+
+
+# seller_interface.py
+
+from tkinter import Tk, Label, Entry, Button, Text, END, messagebox
+
+
+class SellerInterface:
+    """
+    Classe responsável pela interface gráfica para os vendedores.
+    Permite monitorar conversas ativas, visualizar históricos e enviar mensagens.
+    """
+
+    def __init__(self, whatsapp_manager):
+        """
+        Inicializa a interface gráfica e conecta-a ao gerenciador do WhatsApp.
+        Args:
+            whatsapp_manager (WhatsAppManager): Instância do gerenciador do WhatsApp.
+        """
+        self.whatsapp_manager = whatsapp_manager
+        self.root = Tk()
+        self.setup_gui()
+
+    def setup_gui(self):
+        """
+        Configura a interface gráfica com campos para monitorar conversas,
+        exibir mensagens e permitir envio de respostas.
+        """
+        pass
+
+    def update_conversation_list(self):
+        """
+        Atualiza a lista de conversas ativas na interface gráfica.
+        """
+        pass
+
+    def display_conversation_history(self, phone_number):
+        """
+        Exibe o histórico de uma conversa específica na interface gráfica.
+        Args:
+            phone_number (str): Número de telefone do cliente.
+        """
+        pass
+
+    def send_message_from_seller(self):
+        """
+        Envia uma mensagem escrita pelo vendedor para o cliente via WhatsApp.
+        """
+        pass
+
+    def run(self):
+        """
+        Inicia a interface gráfica.
+        """
+        self.root.mainloop()
+
+

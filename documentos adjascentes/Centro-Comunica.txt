@@ -1,0 +1,783 @@
+# BACKUP CRIADO EM: 2025-03-28 21:14:29
+# Total de arquivos: 5
+
+# INÍCIO DO ARQUIVO: main.py (1/5) 
+from WhatsApp_Manager import WhatsAppManager
+from flask import Flask, render_template, request, jsonify, send_from_directory
+import os
+import logging
+
+# Configuração de logging
+logging.basicConfig(level=logging.INFO, 
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    handlers=[logging.StreamHandler()])
+logger = logging.getLogger(__name__)
+
+app = Flask(__name__, template_folder="templates", static_folder="static")
+
+# Inicializa o gerenciador do WhatsApp
+whatsapp_manager = WhatsAppManager()
+
+# Rota para servir arquivos de mídia
+@app.route('/media/<path:filename>')
+def serve_media(filename):
+    try:
+        logger.info(f"Solicitação de mídia: {filename}")
+        # Determina o tipo de mídia com base no caminho
+        if filename.startswith('images/'):
+            return send_from_directory('media', filename)
+        elif filename.startswith('audio/'):
+            return send_from_directory('media', filename)
+        elif filename.startswith('video/'):
+            return send_from_directory('media', filename)
+        elif filename.startswith('documents/'):
+            return send_from_directory('media', filename)
+        else:
+            logger.warning(f"Tipo de mídia não suportado: {filename}")
+            return "Arquivo não encontrado", 404
+    except Exception as e:
+        logger.error(f"Erro ao servir mídia {filename}: {str(e)}")
+        return "Erro ao servir mídia", 500
+
+@app.route('/')
+def index():
+    try:
+        # Renderiza a página inicial com as conversas existentes
+        conversations = whatsapp_manager.conversations
+        logger.info(f"Página inicial carregada com {len(conversations)} conversas")
+        return render_template('index.html', conversations=conversations)
+    except Exception as e:
+        logger.error(f"Erro na página inicial: {str(e)}")
+        return "Erro ao carregar a página", 500
+        
+@app.route('/conversation/<phone_number>')
+def get_conversation(phone_number):
+    try:
+        # Use o nome original do método
+        conversation = whatsapp_manager.get_conversation_history(phone_number)
+        logger.info(f"Conversa solicitada: {phone_number}")
+        return jsonify(conversation)
+    except Exception as e:
+        logger.error(f"Erro ao obter conversa {phone_number}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/send_location', methods=['POST'])
+def send_location():
+    try:
+        data = request.json
+        to_number = data.get("to_number")
+        latitude = data.get("latitude")
+        longitude = data.get("longitude")
+        
+        logger.info(f"Enviando localização para {to_number}: {latitude}, {longitude}")
+        
+        # Crie uma mensagem com a localização
+        message = f"Minha localização atual: https://maps.google.com/?q={latitude},{longitude}"
+        
+        # Use a função existente para enviar mensagem de texto
+        success = whatsapp_manager.send_message_to_whatsapp(to_number, message)
+        
+        if success:
+            logger.info(f"Localização enviada com sucesso para {to_number}")
+            return jsonify({"status": "success"}), 200
+        else:
+            logger.warning(f"Falha ao enviar localização para {to_number}")
+            return jsonify({"status": "error"}), 500
+    except Exception as e:
+        logger.error(f"Erro ao enviar localização: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/send_message', methods=['POST'])
+def send_message():
+    try:
+        # Envia uma mensagem para um número via API do WhatsApp
+        data = request.json
+        to_number = data.get("to_number")
+        message = data.get("message")
+        media_path = data.get("media_path")
+        media_type = data.get("media_type")
+        
+        logger.info(f"Enviando mensagem para {to_number}. Mídia: {media_type if media_type else 'Nenhuma'}")
+        
+        if media_path and media_type:
+            success = whatsapp_manager.send_message_to_whatsapp(to_number, message, media_type, media_path)
+        else:
+            success = whatsapp_manager.send_message_to_whatsapp(to_number, message)
+            
+        if success:
+            logger.info(f"Mensagem enviada com sucesso para {to_number}")
+            return jsonify({"status": "success"}), 200
+        else:
+            logger.warning(f"Falha ao enviar mensagem para {to_number}")
+            return jsonify({"status": "error"}), 500
+    except Exception as e:
+        logger.error(f"Erro ao enviar mensagem: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/toggle_mode/<phone_number>', methods=['POST'])
+def toggle_conversation_mode(phone_number):
+    try:
+        # Alterna o modo da conversa entre automático e humano
+        new_mode = whatsapp_manager.toggle_conversation_mode(phone_number)
+        if new_mode:
+            logger.info(f"Modo de conversa alterado para {phone_number}: {new_mode}")
+            return jsonify({"status": "success", "mode": new_mode}), 200
+        else:
+            logger.warning(f"Conversa não encontrada para alternar modo: {phone_number}")
+            return jsonify({"status": "error", "message": "Conversa não encontrada"}), 404
+    except Exception as e:
+        logger.error(f"Erro ao alternar modo de conversa: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/upload_media', methods=['POST'])
+def upload_media():
+    try:
+        # Endpoint para fazer upload de mídia do cliente
+        if 'file' not in request.files:
+            logger.warning("Tentativa de upload sem arquivo")
+            return jsonify({"status": "error", "message": "Nenhum arquivo enviado"}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            logger.warning("Nome de arquivo vazio no upload")
+            return jsonify({"status": "error", "message": "Nome de arquivo vazio"}), 400
+        
+        # Determinar o tipo de mídia
+        if file.content_type.startswith('image/'):
+            media_type = 'images'
+        elif file.content_type.startswith('audio/'):
+            media_type = 'audio'
+        elif file.content_type.startswith('video/'):
+            media_type = 'video'
+        else:
+            media_type = 'documents'
+        
+        # Salvar o arquivo
+        filename = f"{file.filename}"
+        media_dir = os.path.join('media', media_type)
+        
+        # Garantir que o diretório existe
+        if not os.path.exists(media_dir):
+            os.makedirs(media_dir)
+            
+        filepath = os.path.join(media_dir, filename)
+        file.save(filepath)
+        
+        relative_path = os.path.join(media_type, filename)
+        logger.info(f"Mídia carregada: {relative_path}")
+        
+        return jsonify({
+            "status": "success", 
+            "media_path": relative_path, 
+            "media_type": media_type.rstrip('s')  # Remove o 's' para corresponder ao tipo da API
+        }), 200
+    except Exception as e:
+        logger.error(f"Erro no upload de mídia: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/webhook', methods=['GET'])
+def verify_webhook():
+    try:
+        # Verifica o webhook da Meta
+        mode = request.args.get("hub.mode")
+        token = request.args.get("hub.verify_token")
+        challenge = request.args.get("hub.challenge")
+
+        if mode and token == whatsapp_manager.VERIFICATION_TOKEN:
+            logger.info("Webhook verificado com sucesso!")
+            return challenge, 200
+        else:
+            logger.warning("Verificação de webhook falhou: token inválido")
+            return "Token inválido", 403
+    except Exception as e:
+        logger.error(f"Erro na verificação do webhook: {str(e)}")
+        return "Erro na verificação", 500
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    # Processa mensagens recebidas via webhook
+    try:
+        data = request.json
+        logger.info("Mensagem recebida via webhook")
+        whatsapp_manager.handle_incoming_message(data)
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        logger.error(f"Erro ao processar mensagem do webhook: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.after_request
+def add_header(response):
+    # Adiciona cabeçalhos para evitar cache
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+if __name__ == "__main__":
+    logger.info("Iniciando servidor Flask na porta 5000...")
+    app.run(port=5000, debug=True)
+# FIM DO ARQUIVO: main.py 
+
+# INÍCIO DO ARQUIVO: Webhook_Server.py (2/5) 
+from flask import Flask, request, jsonify, render_template
+
+class WebhookServer:
+    def __init__(self, whatsapp_manager):
+        self.app = Flask(__name__)
+        self.whatsapp_manager = whatsapp_manager
+        self.setup_routes()
+
+    def setup_routes(self):
+        @self.app.route('/')
+        def index():
+            conversations = self.whatsapp_manager.conversations
+            return render_template('index.html', conversations=conversations)
+
+        @self.app.route('/webhook', methods=['GET'])
+        def verify_webhook():
+            mode = request.args.get("hub.mode")
+            token = request.args.get("hub.verify_token")
+            challenge = request.args.get("hub.challenge")
+
+            if mode and token == self.whatsapp_manager.VERIFICATION_TOKEN:
+                print("Webhook verificado com sucesso!")
+                return challenge, 200
+            else:
+                print("Token inválido!")
+                return "Token inválido", 403
+
+        @self.app.route('/webhook', methods=['POST'])
+        def webhook():
+            try:
+                data = request.json
+                print(f"Mensagem recebida via webhook: {data}")
+                self.whatsapp_manager.handle_incoming_message(data)
+                return jsonify({"status": "ok"}), 200
+            except Exception as e:
+                print(f"Erro ao processar mensagem do webhook: {str(e)}")
+                return jsonify({"status": "error", "message": str(e)}), 500
+
+    def run(self, port=5000):
+        print(f"Iniciando servidor webhook na porta {port}...")
+        self.app.run(port=port)
+# FIM DO ARQUIVO: Webhook_Server.py 
+
+# INÍCIO DO ARQUIVO: WhatsApp_Manager.py (3/5) 
+import requests
+import os
+import json
+from datetime import datetime
+from qwen1 import process_message
+from media_handler import MediaHandler
+from audio_processor import AudioProcessor
+
+class WhatsAppManager:
+    def __init__(self):
+        self.VERIFICATION_TOKEN = "EAAJjZBmxpkYgBOyEx31oz53K3694dZCg81dZA17ym3W9rCFjmax29HMwcdgq8iZBawUoNw1vzTlYSGAbIWTN4MRkWZBA0wMpwfLfI6dHaaMyhUZC1qZADUbZBZCNMhOw8a0AI2sBHpBLtbEbMrhBGZBNh81teK7z0ZBX338LZBTHRXYr96YTytPiv1JRD5Vyiis5pl5yhpUHzjHDhgZDZD"
+        self.WHATSAPP_TOKEN = "EAAJjZBmxpkYgBOyEx31oz53K3694dZCg81dZA17ym3W9rCFjmax29HMwcdgq8iZBawUoNw1vzTlYSGAbIWTN4MRkWZBA0wMpwfLfI6dHaaMyhUZC1qZADUbZBZCNMhOw8a0AI2sBHpBLtbEbMrhBGZBNh81teK7z0ZBX338LZBTHRXYr96YTytPiv1JRD5Vyiis5pl5yhpUHzjHDhgZDZD"
+        self.PHONE_NUMBER_ID = "637338086121702"
+        self.conversations = {}
+        self.CONVERSATION_DIR = "conversations"
+        self.media_handler = MediaHandler(
+            phone_number_id=self.PHONE_NUMBER_ID, 
+            whatsapp_token=self.WHATSAPP_TOKEN
+        )
+        
+        if not os.path.exists(self.CONVERSATION_DIR):
+            os.makedirs(self.CONVERSATION_DIR)
+        self.load_conversations()
+        self.audio_processor = AudioProcessor(model_size="base")
+
+    def get_conversation_history(self, phone_number):
+        return self.conversations.get(phone_number, {})
+    
+    def toggle_conversation_mode(self, phone_number):
+        if phone_number in self.conversations:
+            current_mode = self.conversations[phone_number].get("mode", "auto")
+            new_mode = "human" if current_mode == "auto" else "auto"
+            self.conversations[phone_number]["mode"] = new_mode
+            self.save_conversation(phone_number)
+            print(f"Modo da conversa com {phone_number} alterado para: {new_mode}")
+            return new_mode
+        print(f"Tentativa de alternar modo para número inexistente: {phone_number}")
+        return None
+
+    def load_conversations(self):
+        if not os.path.exists(self.CONVERSATION_DIR):
+            os.makedirs(self.CONVERSATION_DIR)
+            print("Diretório de conversas criado.")
+            return
+            
+        try:
+            for filename in os.listdir(self.CONVERSATION_DIR):
+                if filename.endswith('.json'):
+                    phone_number = filename.split(".")[0]
+                    filepath = os.path.join(self.CONVERSATION_DIR, filename)
+                    try:
+                        with open(filepath, "r", encoding='utf-8') as file:
+                            data = json.load(file)
+                            
+                            # Converte formato antigo para novo formato se necessário
+                            if "messages" in data and isinstance(data["messages"], list):
+                                self.conversations[phone_number] = {
+                                    "name": data.get("name", "Cliente"),
+                                    "profile_pic": data.get("profile_pic", ""),
+                                    "mode": data.get("mode", "auto"),
+                                    "messages": []
+                                }
+                                
+                                for msg in data["messages"]:
+                                    if "text" in msg and "type" not in msg:
+                                        self.conversations[phone_number]["messages"].append({
+                                            "type": "text",
+                                            "content": msg["text"],
+                                            "from": msg["from"],
+                                            "timestamp": msg.get("timestamp", datetime.now().strftime("%H:%M %d/%m/%y"))
+                                        })
+                                    else:
+                                        self.conversations[phone_number]["messages"].append(msg)
+                            else:
+                                self.conversations[phone_number] = data
+                            
+                            if "mode" not in self.conversations[phone_number]:
+                                self.conversations[phone_number]["mode"] = "auto"
+                    except Exception as e:
+                        print(f"Erro ao carregar arquivo {filepath}: {str(e)}")
+                        continue
+                        
+            print(f"{len(self.conversations)} conversas carregadas.")
+        except Exception as e:
+            print(f"Erro ao carregar conversas: {str(e)}")
+
+    def save_conversation(self, phone_number):
+        try:
+            if not os.path.exists(self.CONVERSATION_DIR):
+                os.makedirs(self.CONVERSATION_DIR)
+                
+            filepath = os.path.join(self.CONVERSATION_DIR, f"{phone_number}.json")
+            with open(filepath, "w", encoding='utf-8') as file:
+                json.dump(self.conversations.get(phone_number, {}), file, indent=4, ensure_ascii=False)
+            print(f"Conversa com {phone_number} salva.")
+        except Exception as e:
+            print(f"Erro ao salvar conversa: {str(e)}")
+
+    def handle_incoming_message(self, data):
+        try:
+            print(f"Dados recebidos via webhook: {data}")
+            if "messages" in data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}):
+                phone_number = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("wa_id", "")
+                client_name = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("profile", {}).get("name", "Desconhecido")
+                
+                if phone_number not in self.conversations:
+                    self.conversations[phone_number] = {
+                        "name": client_name,
+                        "profile_pic": "",
+                        "mode": "auto",
+                        "messages": []
+                    }
+                
+                message = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("messages", [{}])[0]
+                
+                profile_pic = data.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {}).get("contacts", [{}])[0].get("profile", {}).get("profile_picture", "")
+                if profile_pic:
+                    print(f"FOTO DE PERFIL DETECTADA: {profile_pic}")
+                    self.conversations[phone_number]["profile_pic"] = profile_pic
+                
+                message_type = message.get("type", "")
+                message_content = None
+                media_url = None
+                
+                if message_type == "text":
+                    message_content = message.get("text", {}).get("body", "")
+                    media_url = None
+                    message_obj = {
+                        "type": "text",
+                        "content": message_content,
+                        "from": "cliente",
+                        "timestamp": datetime.now().strftime("%H:%M %d/%m/%y")
+                    }
+                    
+                elif message_type in ["image", "audio", "video", "document"]:
+                    media_id = message.get(message_type, {}).get("id", "")
+                    media_url = self.media_handler.download_media(media_id, self.WHATSAPP_TOKEN)
+                    caption = message.get(message_type, {}).get("caption", "")
+
+                    # Processar áudio para texto se for mensagem de áudio
+                    transcription = ""
+
+                    # No método handle_incoming_message, após obter media_url
+                    if message_type == "audio" and media_url:
+                        # Verificar se media_url já tem o prefixo "media\"
+                        audio_path = media_url
+                        if not audio_path.startswith('media\\') and not audio_path.startswith('media/'):
+                            audio_path = os.path.join('media', audio_path)
+    
+                        # Transcrever o áudio
+                        transcription = self.audio_processor.transcribe_audio(audio_path)
+                        print(f"Áudio transcrito: {transcription}")
+                    
+                    message_obj = {
+                        "type": message_type,
+                        "content": caption,
+                        "media_url": media_url,
+                        "from": "cliente",
+                        "timestamp": datetime.now().strftime("%H:%M %d/%m/%y")
+                    }
+                else:
+                    print(f"Tipo de mensagem desconhecido: {message_type}")
+                    return
+                
+                self.conversations[phone_number]["messages"].append(message_obj)
+                self.save_conversation(phone_number)
+                
+                print(f"Mensagem do cliente {client_name} ({phone_number}) recebida: Tipo={message_type}")
+
+
+                if self.conversations[phone_number]["mode"] == "auto":
+                    self.conversations[phone_number]["status"] = "processing"
+                    self.save_conversation(phone_number)
+    
+                    resposta_qwen = None
+                    try:
+                        if message_type == "text":
+                            resposta_qwen = process_message(message_content, phone_number)
+                        elif message_type == "audio" and transcription:
+                         # Usar o texto transcrito do áudio para processar a resposta
+                            resposta_qwen = process_message(transcription, phone_number)
+                        else:
+                            media_desc = f"[Cliente enviou {message_type}]"
+                            if caption:
+                                media_desc += f" com a legenda: '{caption}'"
+                            resposta_qwen = process_message(media_desc, phone_number)
+        
+                        # Enviar a resposta ao cliente
+                        if resposta_qwen:
+                            self.send_message_to_whatsapp(phone_number, resposta_qwen)
+        
+                        # Atualizar status para "idle" após processamento bem-sucedido
+                        self.conversations[phone_number]["status"] = "idle"
+                        self.save_conversation(phone_number)
+                    except Exception as e:
+                        print(f"Erro ao processar resposta automática: {str(e)}")
+                        # Atualizar status para "error" em caso de falha
+                        self.conversations[phone_number]["status"] = "error"
+                        self.save_conversation(phone_number)
+                        import traceback
+                        traceback.print_exc()
+
+        except Exception as e:
+            print(f"Erro ao processar mensagem: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def send_message_to_whatsapp(self, to_number, message, media_type=None, media_path=None):
+        try:
+            url = f"https://graph.facebook.com/v16.0/{self.PHONE_NUMBER_ID}/messages"
+            headers = {
+                "Authorization": f"Bearer {self.WHATSAPP_TOKEN}",
+                "Content-Type": "application/json"
+            }
+
+            # Mensagem de texto simples
+            if media_type is None:
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": to_number,
+                    "type": "text",
+                    "text": {
+                        "body": message
+                    }
+                }
+            else:
+                # Lida com envio de mídia
+                if media_path.startswith(('http://', 'https://')):
+                    # URL externa
+                    media_payload = {
+                        "link": media_path
+                    }
+                    if media_type != "audio" and message:
+                        media_payload["caption"] = message
+                else:
+                    # Arquivo local
+                    full_path = os.path.join('media', media_path) if not media_path.startswith('media') else media_path
+
+                    if not os.path.exists(full_path):
+                        print(f"Arquivo não encontrado: {full_path}")
+                        return False
+
+                    # Upload de mídia com tratamento de erro
+                    try:
+                        mime_type = "audio/ogg" if media_type == "audio" else None
+                        media_id = self.media_handler.upload_media(full_path, self.WHATSAPP_TOKEN, mime_type)
+
+                        if not media_id:
+                            print(f"Falha ao obter ID de mídia para {media_path}")
+                            return False
+
+                        media_payload = {
+                            "id": media_id
+                        }
+                        # Adiciona legenda apenas para mídias que não são áudio
+                        if media_type != "audio" and message:
+                            media_payload["caption"] = message
+                    except Exception as e:
+                        print(f"Erro no upload de mídia: {str(e)}")
+                        return False
+
+                # Payload final para envio de mídia
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": to_number,
+                    "type": media_type,
+                    media_type: media_payload
+                }
+
+            print(f"Enviando payload: {payload}")  # Debug para ver o payload enviado
+            response = requests.post(url, json=payload, headers=headers)
+
+            # Verifica a resposta
+            if response.status_code == 200:
+                print(f"Mensagem enviada com sucesso para {to_number}")
+
+                timestamp = datetime.now().strftime("%H:%M %d/%m/%y")
+                if to_number not in self.conversations:
+                    self.conversations[to_number] = {
+                        "name": "Desconhecido",
+                        "profile_pic": "",
+                        "mode": "auto",
+                        "messages": []
+                    }
+
+                sender = "qwen" if self.conversations[to_number]["mode"] == "auto" else "vendedor"
+
+                # Registra a mensagem na conversa
+                if media_type is None:
+                    self.conversations[to_number]["messages"].append({
+                        "type": "text",
+                        "content": message,
+                        "from": sender,
+                        "timestamp": timestamp
+                    })
+                else:
+                    self.conversations[to_number]["messages"].append({
+                        "type": media_type,
+                        "content": message,
+                        "media_url": media_path,
+                        "from": sender,
+                        "timestamp": timestamp
+                    })
+
+                self.save_conversation(to_number)
+                return True
+            else:
+                print(f"Falha ao enviar mensagem para {to_number}: {response.text}")
+                return False
+        except Exception as e:
+            print(f"Erro ao enviar mensagem: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
+# FIM DO ARQUIVO: WhatsApp_Manager.py 
+
+# INÍCIO DO ARQUIVO: media_handler.py (4/5) 
+import os
+import requests
+import mimetypes
+from datetime import datetime
+
+class MediaHandler:
+    def __init__(self, phone_number_id=None, whatsapp_token=None):
+        self.MEDIA_DIR = "media"
+        self.PHONE_NUMBER_ID = phone_number_id
+        self.WHATSAPP_TOKEN = whatsapp_token
+
+        if not os.path.exists(self.MEDIA_DIR):
+            os.makedirs(self.MEDIA_DIR)
+            os.makedirs(os.path.join(self.MEDIA_DIR, "images"))
+            os.makedirs(os.path.join(self.MEDIA_DIR, "audio"))
+            os.makedirs(os.path.join(self.MEDIA_DIR, "video"))
+            os.makedirs(os.path.join(self.MEDIA_DIR, "documents"))
+    
+    def download_media(self, media_id, whatsapp_token):
+        try:
+            url = f"https://graph.facebook.com/v16.0/{media_id}"
+            headers = {
+                "Authorization": f"Bearer {whatsapp_token}"
+            }
+            
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                print(f"Erro ao obter URL da mídia: {response.text}")
+                return None
+            
+            media_data = response.json()
+            media_url = media_data.get("url")
+            mime_type = media_data.get("mime_type", "application/octet-stream")
+            
+            response = requests.get(media_url, headers=headers)
+            if response.status_code != 200:
+                print(f"Erro ao baixar mídia: {response.status_code}")
+                return None
+            
+            extension = mimetypes.guess_extension(mime_type) or ""
+            media_type = self._get_media_type(mime_type)
+            
+            media_dir_path = os.path.join(self.MEDIA_DIR, media_type)
+            if not os.path.exists(media_dir_path):
+                os.makedirs(media_dir_path)
+            
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            filename = f"{media_id}_{timestamp}{extension}"
+            filepath = os.path.join(media_dir_path, filename)
+            
+            with open(filepath, 'wb') as f:
+                f.write(response.content)
+                
+            print(f"Mídia salva em: {filepath}")
+            return os.path.join(media_type, filename)
+        
+        except Exception as e:
+            print(f"Erro ao baixar mídia: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
+        
+    def upload_media(self, media_path, token, mime_type=None):
+        """Faz upload de um arquivo de mídia para o WhatsApp"""
+        try:
+            if not os.path.exists(media_path):
+                print(f"Arquivo não encontrado: {media_path}")
+                return None
+            
+            # Verifica se PHONE_NUMBER_ID foi definido
+            if not hasattr(self, 'PHONE_NUMBER_ID') or not self.PHONE_NUMBER_ID:
+                print("PHONE_NUMBER_ID não configurado.")
+                return None
+
+            # Se o tipo MIME não for fornecido, tenta detectar
+            if not mime_type:
+                file_ext = os.path.splitext(media_path)[1].lower()
+                if file_ext in ['.jpg', '.jpeg']:
+                    mime_type = 'image/jpeg'
+                elif file_ext == '.png':
+                    mime_type = 'image/png'
+                elif file_ext in ['.mp4', '.mpeg4']:
+                    mime_type = 'video/mp4'
+                elif file_ext in ['.ogg', '.oga', '.webm']:
+                    mime_type = 'audio/ogg'
+                elif file_ext == '.pdf':
+                    mime_type = 'application/pdf'
+
+            # Abre o arquivo em modo binário
+            with open(media_path, 'rb') as f:
+                media_data = f.read()
+
+            # Configura a requisição
+            url = f"https://graph.facebook.com/v16.0/{self.PHONE_NUMBER_ID}/media"
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "multipart/form-data"
+            }
+
+            # Prepara os dados para upload
+            files = {
+                'file': (os.path.basename(media_path), media_data, mime_type),
+                'type': (None, mime_type),
+                'messaging_product': (None, 'whatsapp')
+            }
+
+            print(f"Enviando upload para {url} com tipo MIME: {mime_type}")
+
+            # Envia a requisição
+            response = requests.post(url, files=files, headers=headers)
+
+            # Verifica se houve sucesso
+            if response.status_code in [200, 201]:
+                result = response.json()
+                media_id = result.get('id')
+                print(f"Mídia enviada com sucesso. ID: {media_id}")
+                return media_id
+            else:
+                print(f"Erro ao enviar mídia: {response.status_code} - {response.text}")
+                return None
+
+        except Exception as e:
+            print(f"Erro ao fazer upload de mídia: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def _get_media_type(self, mime_type):
+        if mime_type.startswith('image/'):
+            return "images"
+        elif mime_type.startswith('audio/'):
+            return "audio"
+        elif mime_type.startswith('video/'):
+            return "video"
+        else:
+            return "documents"
+# FIM DO ARQUIVO: media_handler.py 
+
+# INÍCIO DO ARQUIVO: audio_processor.py (5/5) 
+import whisper
+import os
+import tempfile
+
+class AudioProcessor:
+    def __init__(self, model_size="base"):
+        """
+        Inicializa o processador de áudio com um modelo Whisper
+        model_size pode ser "tiny", "base", "small", "medium", ou "large"
+        """
+        try:
+            self.model = whisper.load_model(model_size)
+            print(f"Modelo Whisper '{model_size}' carregado com sucesso.")
+        except Exception as e:
+            print(f"Erro ao carregar modelo Whisper '{model_size}': {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
+    
+    def transcribe_audio(self, audio_path, language="pt"):
+        """
+        Transcreve um arquivo de áudio para texto
+        
+        Parâmetros:
+        - audio_path: caminho para o arquivo de áudio
+        - language: código do idioma (por exemplo, "pt" para português)
+        
+        Retorna:
+        - Texto transcrito
+        """
+        try:
+            print(f"Tentando transcrever áudio: {audio_path}")
+            
+            # Verificar se o arquivo existe
+            if not os.path.exists(audio_path):
+                error_msg = f"Arquivo de áudio não encontrado: {audio_path}"
+                print(error_msg)
+                return f"[{error_msg}]"
+            
+            print(f"O arquivo existe. Tamanho: {os.path.getsize(audio_path)} bytes")
+            
+            # Transcrever diretamente sem converter
+            print(f"Iniciando transcrição do áudio...")
+            options = {"language": language}
+            
+            # Transcrever o áudio
+            result = self.model.transcribe(audio_path, **options)
+            
+            # Retornar o texto
+            transcribed_text = result["text"].strip()
+            print(f"Transcrição bem-sucedida: '{transcribed_text}'")
+            return transcribed_text
+                
+        except Exception as e:
+            error_message = f"Erro ao transcrever áudio: {str(e)}"
+            print(error_message)
+            import traceback
+            traceback.print_exc()
+            return f"[Falha na transcrição de áudio: {str(e)}]"
+# FIM DO ARQUIVO: audio_processor.py 
+
+# FIM DO BACKUP - 2025-03-28 21:14:29

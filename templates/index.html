@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp - MP Tintas </title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='realtime-styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+
+    <script src="https://cdn.jsdelivr.net/npm/opus-recorder@8.0.3/dist/recorder.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Coluna da esquerda (Lista de Conversas) -->
+        <div class="left-column">
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Buscar conversas..." oninput="App.filterConversations()">
+            </div>
+            <div class="new-conversation">
+                <input type="text" id="new-number" placeholder="Digite o número do WhatsApp">
+                <button onclick="App.startNewConversation()">Iniciar Conversa</button>
+            </div>
+            <div class="conversation-list" id="conversation-list">
+                {% for phone, conv in conversations.items() %}
+                <div class="conversation-item" data-phone="{{ phone }}" onclick="App.loadConversation('{{ phone }}')">
+                    <div class="conversation-avatar">
+                        {% if conv.profile_pic %}
+                            <img src="{{ conv.profile_pic }}" alt="{{ conv.name }}">
+                        {% else %}
+                            <div class="avatar-placeholder">{{ conv.name[0]|upper }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="conversation-info">
+                        <div class="name">{{ conv.name }}</div>
+                        <div class="phone">{{ phone }}</div>
+                        {% if conv.unread_count and conv.unread_count > 0 %}
+                        <div class="unread-badge">{{ conv.unread_count }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="conversation-actions-hover">
+                        <button class="action-btn delete-btn" onclick="event.stopPropagation(); App.confirmDeleteConversation('{{ phone }}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button class="action-btn archive-btn" onclick="event.stopPropagation(); alert('Função de arquivar será implementada em breve!')">
+                            <i class="fas fa-archive"></i>
+                        </button>
+                    </div>
+                    <div class="conversation-mode">
+                        <div class="mode-toggle {% if conv.mode == 'human' %}human-mode{% else %}auto-mode{% endif %}" 
+                                onclick="event.stopPropagation(); App.toggleMode()">
+                            <i class="fas {% if conv.mode == 'human' %}fa-user{% else %}fa-robot{% endif %}"></i>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Coluna central (Conversa Atual) -->
+        <div class="center-column">
+            <div class="header">
+                <div class="contact-info" onclick="App.showProfileDetails()">
+                    <div class="contact-avatar" id="current-contact-avatar">
+                        <div class="avatar-placeholder">?</div>
+                    </div>
+                    <div class="contact-name" id="current-contact-name">Selecione uma conversa</div>
+                </div>
+                <div class="conversation-actions">
+                    <button id="toggle-mode-btn" onclick="App.toggleMode()" style="display:none;">
+                        <i class="fas fa-robot"></i> Modo Automático
+                    </button>
+                    <button class="share-button" id="share-conversation-btn" onclick="App.shareConversation()" style="display:none;">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="message-area" id="message-area">
+                <div class="empty-state">
+                    Selecione uma conversa para ver as mensagens
+                </div>
+            </div>
+            <div class="input-area">
+                <div class="media-buttons">
+                    <button type="button" class="media-btn" onclick="App.openMediaUpload('image')">
+                        <i class="fas fa-image"></i>
+                    </button>
+                    <button type="button" class="media-btn" onclick="App.openMediaUpload('audio')">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button type="button" class="media-btn" onclick="App.openMediaUpload('video')">
+                        <i class="fas fa-video"></i>
+                    </button>
+                    <button type="button" class="media-btn" onclick="App.openMediaUpload('document')">
+                        <i class="fas fa-file"></i>
+                    </button>
+                    <button type="button" class="media-btn" onclick="App.openLocationSelector()">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </button>
+                </div>
+                <textarea id="message-input" placeholder="Digite uma mensagem ou use / para comandos"></textarea>
+                <button type="button" id="send-button" onclick="App.sendMessage()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Coluna da direita (Visualização da IA) -->
+        <div class="right-column">
+            <div class="header">
+                <div class="ai-title">Visão de I.A.</div>
+                <div class="ai-actions">
+                    <button class="action-btn" id="toggle-ai-panel" onclick="App.toggleAIPanel()">
+                        <i class="fas fa-columns"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="ai-message-area" id="ai-message-area">
+                <div class="empty-state">
+                    Informações da IA aparecerão aqui quando uma conversa estiver ativa
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Upload de Mídia -->
+    <div id="media-upload-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="App.closeModal()">&times;</span>
+            <h3 id="upload-title">Enviar Mídia</h3>
+            <form id="media-upload-form">
+                <input type="file" id="media-file" name="file">
+                <textarea id="media-caption" placeholder="Adicionar legenda (opcional)..."></textarea>
+                <button type="button" id="upload-media-btn" onclick="App.uploadMedia()">Enviar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Localização -->
+    <div id="location-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="App.closeModal()">&times;</span>
+            <h3>Compartilhar Localização</h3>
+            <div id="location-map" class="location-map">
+                <!-- O mapa será carregado aqui -->
+            </div>
+            <div class="location-controls">
+                <button type="button" id="use-my-location" onclick="App.useMyLocation()">
+                    <i class="fas fa-crosshairs"></i> Usar minha localização
+                </button>
+                <button type="button" id="send-location-btn" onclick="App.sendSelectedLocation()" disabled>
+                    Enviar localização
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template para menu de comandos (será usado pelo commands.js) -->
+    <div id="command-menu-template" style="display: none;">
+        <div class="command-menu">
+            <div class="command-header">
+                <h3>Comandos Disponíveis</h3>
+                <span class="close" onclick="App.hideCommandMenu()">&times;</span>
+            </div>
+            <div class="command-list" id="command-list">
+                <!-- Comandos serão adicionados dinamicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Status da conexão SSE -->
+    <div id="connection-status" class="connection-status">
+        <div class="status-indicator offline">
+            <i class="fas fa-wifi"></i>
+        </div>
+    </div>
+
+    <!-- Scripts - Ordem importa! -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script src="{{ url_for('static', filename='conversation.js') }}"></script>
+    <script src="{{ url_for('static', filename='commands.js') }}"></script>
+    <script src="{{ url_for('static', filename='media.js') }}"></script>
+    <script src="{{ url_for('static', filename='ui.js') }}"></script>
+    <script src="{{ url_for('static', filename='notification_manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='persistence_handler.js') }}"></script>
+    <!-- Inicialização do SSE -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Inicializa o SSE Handler
+            window.sseHandler = new App.SSEMessageHandler();
+            window.sseHandler.connect(); // Inicia a conexão SSE
+            
+            // Atualiza o indicador de status da conexão
+            const updateConnectionStatus = (connected) => {
+                const statusIndicator = document.querySelector('.status-indicator');
+                if (statusIndicator) {
+                    if (connected) {
+                        statusIndicator.className = 'status-indicator online';
+                        statusIndicator.title = 'Conectado em tempo real';
+                    } else {
+                        statusIndicator.className = 'status-indicator offline';
+                        statusIndicator.title = 'Sem conexão em tempo real';
+                    }
+                }
+            };
+            
+            // Adiciona listeners para eventos de conexão
+            window.addEventListener('sse-connected', () => {
+                updateConnectionStatus(true);
+            });
+            
+            window.addEventListener('sse-disconnected', () => {
+                updateConnectionStatus(false);
+            });
+            
+            // Verifica o status a cada 10 segundos
+            setInterval(() => {
+                fetch('/events/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        updateConnectionStatus(data.status === 'online');
+                    })
+                    .catch(() => {
+                        updateConnectionStatus(false);
+                    });
+            }, 10000);
+        });
+    </script>
+</body>
+</html>
